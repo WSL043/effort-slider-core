@@ -148,8 +148,12 @@ export function injectStyles(target?: Document | ShadowRoot): void
 
 /** One frame of the rail's light. */
 export interface FireFrame {
-  /** Seconds of fire time. */
+  /** Seconds since the light started, for steady motions. */
   time?: number
+  /** The tempo clock from `Combustion.flow`. It must never jump. */
+  flow?: number
+  /** The current tempo, `tempoOf(level, charge)`. */
+  tempo?: number
   /** Seconds since the last frame; 0 draws with no afterglow. */
   dt?: number
   /** Thumb centre, CSS pixels from the start of the rail. */
@@ -198,6 +202,8 @@ export interface Combustion {
   readonly from: number
   readonly to: number
   readonly since: number
+  /** The integrated tempo clock: never jumps when the tempo changes. */
+  readonly flow: number
   /** True while cells are still catching, receding, or cooling. */
   readonly changing: boolean
   /** True while there is any fire to draw. */
@@ -208,13 +214,16 @@ export interface Combustion {
   target(intensity: number): boolean
   /** Jump to a level with no event. */
   settle(intensity: number): void
-  advance(dt: number): void
+  /** Advance by `dt` seconds at `tempo` (from `tempoOf`). */
+  advance(dt: number, tempo?: number): void
 }
 
 export function createCombustion(options?: { reach?: number }): Combustion
 /** How far the fire reaches (0-1 of the filled rail) at a level intensity. */
 export function extentOf(intensity: number, reach?: number): number
 /** Extent of a cell with hash `h`, `since` seconds into an event. */
+/** How fast the light lives at an intensity, with the person acting (charge 1) or not. */
+export function tempoOf(intensity: number, charge?: number): number
 export function cellExtent(from: number, to: number, since: number, h?: number): number
 /** Seconds until every cell of an event has finished. */
 export function eventLength(from: number, to: number): number

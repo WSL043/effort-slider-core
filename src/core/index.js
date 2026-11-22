@@ -21,6 +21,6 @@ export {
   toHex,
 } from './color.js'
 export { DEFAULT_PRESET, MODES, PARAM_DEFAULTS, PRESETS, THUMBS, resolvePreset } from './presets.js'
-export { TIMING, cellExtent, createCombustion, eventLength, extentOf } from './combustion.js'
+export { TIMING, cellExtent, createCombustion, eventLength, extentOf, tempoOf } from './combustion.js'
 export { createSliderModel } from './model.js'
 export { Spring } from './spring.js'

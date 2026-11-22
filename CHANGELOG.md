@@ -1,32 +1,42 @@
 # Changelog
 
-## 2.1.0
-
-The first version meant for release. The feature set is the 2.0.0 rewrite below;
-this entry lists what changed after review while it was still unreleased.
+## 2.1.1
 
 ### Fixed
 
+- **The flow clock no longer jumps.** Motion is a pure function of time, and
+  the time it read was elapsed seconds multiplied by tempo. Tempo changes on
+  purpose: it speeds up while a person acts and calms down over about two
+  seconds after. Multiplying meant that every tempo change moved the whole
+  field at once, so the light stalled or ran backwards for a moment, worse the
+  longer the page had been open. Motion now accumulates a single clock, so tempo
+  bends the speed and never the position, and the 30 fps idle throttle is gone.
+  Regression test: `the flow clock never jumps when the tempo changes`.
 - `setValue()` and `destroy()` are closures, not methods, so a handle survives
   being destructured: `const { setValue } = slider` no longer loses its
   receiver.
 - `effort-slider-core/renderer` has its own declaration file instead of the
-  whole package surface, so an editor stops offering the core from that entry.
-- The package description names five presets, not ten.
+  whole package surface.
+- The package describes five presets, not ten.
 
 ### Changed
 
-- The `main` field is gone; `exports` is the only resolution map. The package
-  was already ESM only, and a `main` pointing at ESM only invited
-  `ERR_REQUIRE_ESM` from tools that ignore `exports`. The README says so.
-- README screenshots are quantised: `docs/` goes from 538 kB to 149 kB, and the
-  packed package from 589 kB to 198 kB.
+- `main` is gone; `exports` is the only resolution map. The package was already
+  ESM only, and a `main` pointing at ESM only invited `ERR_REQUIRE_ESM` from
+  tools that ignore `exports`. The READMEs say so.
+- README screenshots are quantised: `docs/` goes from 293 kB to 85 kB, and the
+  packed package from 589 kB to 175 kB.
 
 ### Added
 
-- `PUBLISH.md`, the release checklist, including the `repository` and
-  `homepage` fields that cannot be filled in before the repository exists.
-- A regression test for a destructured handle.
+- `repository`, `homepage` and `bugs` point at the public repository and the
+  live demo.
+- `PUBLISH.md`, the release checklist.
+- `index.html`, so GitHub Pages serves the demo at the repository root.
+
+## 2.1.0 (tagged, not published)
+
+The first version meant for release. The feature set is the 2.0.0 rewrite below.
 
 ## 2.0.0 (unreleased draft)
 
@@ -69,6 +79,8 @@ A rewrite. The idea is the same (effort you can see); every part was rebuilt.
 - At Off the rail is exactly empty. (The 8-bit afterglow can now reach zero,
   and the canvas is cleared when the light has gone out.)
 - The level's name rises into place and glows with the rail's light.
+- Every motion runs on one integrated tempo clock, and every frame is drawn,
+  so nothing jumps when the tempo relaxes after a selection.
 - Event timing lives in `createCombustion` (no DOM, tested in Node) and is
   shared with the shader.
 - Light theme is composited as ink. Output is premultiplied alpha; no

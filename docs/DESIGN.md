@@ -27,6 +27,13 @@ pattern but a set of choices about time and individuality. Written down:
 7. **Only what is hot glows.**
 8. **The whole control is one moment.** The level's name rises into place and
    glows with the rail's light.
+9. **Nothing jumps.** A living thing changes tempo; it never skips. Every
+   motion that speeds up with effort reads the flow clock
+   (`flow += dt * tempo`), never `time * speed`: with the latter, a change of
+   speed shifts every wave by the whole elapsed time, and the fire stalls or
+   runs backwards. That happened in an earlier build two seconds after
+   reaching the top, as the post-selection tempo relaxed. For the same reason
+   the loop no longer drops to half rate at rest.
 
 And two that this project adds:
 
@@ -95,14 +102,17 @@ Rules it enforces:
 
 ## The frame loop
 
-`dom/slider.js` runs one `requestAnimationFrame` loop per slider, and only
-while something needs it:
+`dom/slider.js` runs one `requestAnimationFrame` loop per slider while the
+light is alive, and draws every frame. It stops when the light is out and its
+embers have cooled, when the slider is off screen, when the tab is hidden, or
+when motion is `still`.
 
-- the spring is moving, the person is dragging, a commit is pending, or the
-  charge has not finished relaxing: every frame;
-- nothing is happening but the rail is alight: every other frame;
-- the fire is out and its embers have cooled, the slider is off screen, the
-  tab is hidden, or motion is `still`: no loop.
+Two clocks drive the shader: `time` (plain seconds, for steady things such as
+the core's breathing) and `flow` (seconds integrated at the current tempo,
+for everything that speeds up with effort or with the person's activity). The
+tempo is `tempoOf(level, charge)`; `charge` rises while the person acts and
+relaxes over a couple of seconds afterwards, so the light visibly calms, but
+through `flow` that calming is a smooth deceleration.
 
 The afterglow is scaled by the real time between frames
 (`persistence ^ (dt * 60)`), so a 120 Hz screen and a 60 Hz one look alike.

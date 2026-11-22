@@ -43,6 +43,8 @@ in vec2 v_uv;
 uniform vec2 u_res;
 uniform sampler2D u_back;
 uniform float u_time;
+uniform float u_flow;
+uniform float u_tempo;
 uniform float u_keep;
 uniform float u_head;
 uniform float u_edge;
@@ -65,7 +67,7 @@ float hash(vec2 p){p=fract(p*vec2(233.34,851.73));p+=dot(p,p+23.45);return fract
 
 // ---- the cell, shared by every mode
 vec2 id;
-float h,h2,t,lv,ts,x,source,d,filled,at,k,delay,dur,extent,running,across,body,behind,lit;
+float h,h2,t,f,lv,x,source,d,filled,at,k,delay,dur,extent,running,across,body,behind,lit;
 bool grow;
 
 // ---- what this frame adds: energy, and energy-weighted temperature
@@ -96,11 +98,11 @@ void fireMode(){
     float bright=pow(1.0-dn,0.65);
     // Flames: three waves of different length run away from the source;
     // each cell is out of phase with its neighbours, so they shimmer apart.
-    float wave=sin(d*2.4-t*15.0*ts+h*TAU)+0.5*sin(d*1.4-t*8.0*ts+h*3.1)+0.25*sin(d*4.2-t*25.0*ts+h*10.0);
+    float wave=sin(d*2.4-f*15.0+h*TAU)+0.5*sin(d*1.4-f*8.0+h*3.1)+0.25*sin(d*4.2-f*25.0+h*10.0);
     float flame=smoothstep(0.08,0.92,wave*0.35*u_p.x+0.5);
     // Pulse: beats leave the source, measured along the fire itself.
-    float beat=sin(dn*16.0-t*5.0*ts+h*3.0);
-    float swell=sin(dn*8.0-t*2.5*ts+h*5.0);
+    float beat=sin(dn*16.0-f*5.0+h*3.0);
+    float swell=sin(dn*8.0-f*2.5+h*5.0);
     float pulse=pow(max(smoothstep(-0.15,0.55,beat)*(swell*0.5+0.5),0.0),1.2);
     add(bright*body*(flame*0.42+pulse*0.38)*mix(0.3,1.0,lv)*1.35,pow(1.0-dn,1.5));
     float ago=joinedAgo();
@@ -109,12 +111,12 @@ void fireMode(){
   }
   if(extent>0.002){
     // The burning edge flickers hardest while it runs, then smoulders.
-    float shimmer=(0.5+0.5*sin(d*3.6+t*20.0*ts+h*TAU))*(0.5+0.5*sin(d*2.2+t*11.0*ts+h*3.1));
+    float shimmer=(0.5+0.5*sin(d*3.6+f*20.0+h*TAU))*(0.5+0.5*sin(d*2.2+f*11.0+h*3.1));
     add(exp(-pow((d-extent)*1.6,2.0))*(0.25+1.5*shimmer)*mix(0.35,1.0,lv)*mix(0.18,0.9,running),0.7);
     // Sparks run ahead of it, into the dark.
     float lead=d-extent;
     float zone=smoothstep(0.9,0.0,lead)*step(0.0,lead)*body;
-    add(zone*step(0.6,h2)*(0.5+0.5*sin(lead*8.0+t*20.0*ts+h2*TAU))*smoothstep(0.45,1.0,lv)*mix(0.15,0.6,running),0.8);
+    add(zone*step(0.6,h2)*(0.5+0.5*sin(lead*8.0+f*20.0+h2*TAU))*smoothstep(0.45,1.0,lv)*mix(0.15,0.6,running),0.8);
   }
   // Sparks thrown back along each row.
   if(extent>0.002&&d>0.0&&d<extent){
@@ -122,7 +124,7 @@ void fireMode(){
     for(int i=0;i<9;i++){
       if(float(i)>=count)break;
       float hr=hash(vec2(id.y,float(i)*7.3)+u_seed);
-      float run=fract(t*(0.38+hr*0.15)*ts+hr*7.0);
+      float run=fract(f*(0.38+hr*0.15)+hr*7.0);
       float sx=source-run*extent;
       add(smoothstep(0.75/u_rows,0.0,abs(x-sx))*(1.0-run)*(1.0-run)*mix(0.3,1.0,lv)*0.7,0.9);
     }
@@ -137,7 +139,8 @@ void fireMode(){
 
 // --------------------------------------------------------------- synapse
 void synapseMode(){
-  float rate=mix(0.7,2.4,lv)*(1.0+0.5*u_charge);
+  // Beats per unit of flow; the tempo makes them come faster with effort.
+  float rate=2.4;
   float speed=mix(3.5,7.0,lv);
   if(inside()){
     float dn=dnOf();
@@ -145,9 +148,9 @@ void synapseMode(){
     // speed and every cell answers a little early or late, so a beat arrives
     // as a scatter, never as a column.
     float rowSpeed=speed*mix(0.7,1.3,hash(vec2(id.y,3.7)+u_seed));
-    float phase=(t-d/rowSpeed-h*0.22)*rate;
+    float phase=(f-(d/rowSpeed+h*0.22)*u_tempo)*rate;
     float n=floor(phase);
-    float age=fract(phase)/rate;
+    float age=fract(phase)/(rate*u_tempo);
     // A cell passes a beat on only by chance, less often far from the
     // source, and the dice are thrown again for every beat: each beat takes
     // its own path.
@@ -172,7 +175,7 @@ void synapseMode(){
   float left=leftAgo();
   if(left>0.0)add(exp(-left*2.2)*step(0.55,h2)*body*0.35,0.4);
   // The source fires with every beat.
-  float sinceBeat=fract(t*rate)/rate;
+  float sinceBeat=fract(f*rate)/(rate*u_tempo);
   add(exp(-pow(d*1.3,2.0))*(0.3+1.1*exp(-sinceBeat*7.0))*mix(0.5,1.0,lv)*lit*body*behind,1.0);
 }
 
@@ -184,11 +187,11 @@ void frostMode(){
     float crystal=body*pow(1.0-dn,0.5)*(0.2+0.3*h)*mix(0.5,1.0,lv);
     add(crystal,0.28+0.3*(1.0-dn));
     // Glints: rare and sharp, each crystal at its own moment.
-    float rate=mix(0.12,0.45,h2)*mix(0.7,1.3,lv)*u_p.x;
-    float glint=pow(max(sin(t*rate*TAU*0.5+h*40.0),0.0),160.0)*step(0.5,h)*(1.0-dn*0.6);
+    float rate=mix(0.12,0.45,h2)*1.3*u_p.x;
+    float glint=pow(max(sin(f*rate*TAU*0.5+h*40.0),0.0),160.0)*step(0.5,h)*(1.0-dn*0.6);
     add(glint*1.4,1.0);
     // Cold breath: a slow bright band leaves the source every few seconds.
-    float breath=fract(t*0.26*mix(0.7,1.3,lv));
+    float breath=fract(f*0.34);
     add(exp(-pow((dn-breath)*7.0,2.0))*body*0.3*(1.0-breath),0.75);
     float ago=joinedAgo();
     if(ago>=0.0)add(exp(-ago*2.2)*body*0.55,0.95);
@@ -215,14 +218,15 @@ void planktonMode(){
   if(inside()){
     float dn=dnOf();
     // Swells leave the source; more effort sends them more often and further.
-    float period=mix(4.2,1.7,lv);
-    float age=fract(t/period+h*0.02)*period;
+    // A swell every 1.7 units of flow: more often as the tempo rises.
+    float period=1.7;
+    float age=fract(f/period+h*0.02)*period/u_tempo;
     float front=age*mix(2.4,4.6,lv);
     float swell=exp(-pow((d-front)*7.0,2.0))*(1.0-smoothstep(extent*0.6,extent,front));
     // A selection: one strong push.
     float push=exp(-pow((d-u_burst*5.0)*5.0,2.0))*exp(-u_burst*0.7)*1.5;
     // Not every organism is roused by every swell.
-    float n=floor(t/period+h*0.02);
+    float n=floor(f/period+h*0.02);
     float awake=step(hash(id+vec2(n*2.1,n*0.3)+u_seed),mix(0.35,0.7,lv));
     float answer=smoothstep(threshold,threshold+0.12,(swell*mix(0.7,1.1,lv))*awake+push*step(0.3,h));
     add(answer*body*mix(1.0,0.6,dn),0.85);
@@ -252,8 +256,11 @@ void main(){
   h=hash(id+u_seed);
   h2=hash(id+vec2(41.0,17.0)+u_seed);
   t=u_time;
+  // f is the flow clock: time integrated at the current tempo. Every motion
+  // that speeds up with effort reads f, never t times a speed, so a change
+  // of tempo bends the motion smoothly instead of jumping it.
+  f=u_flow;
   lv=u_level;
-  ts=mix(0.45,1.0,lv)*(1.0+0.2*u_charge);
 
   x=(id.x+0.5)/u_rows;
   source=max(u_head-u_edge*0.6,0.0);

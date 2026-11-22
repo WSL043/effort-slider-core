@@ -258,7 +258,7 @@ darkQuery.addEventListener('change', applyTheme)
 
 document.getElementById('app').append(
   h('header', { class: 'top' },
-    h('span', { class: 'mark' }, 'effort-slider-core', h('small', {}, '2.1')),
+    h('span', { class: 'mark' }, 'effort-slider-core', h('small', {}, '2.1.1')),
     segmented('Theme', [['auto', 'System'], ['light', 'Light'], ['dark', 'Dark']], () => state.theme, value => { state.theme = value; applyTheme() }),
   ),
   h('main', {},

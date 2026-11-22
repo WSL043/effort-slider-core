@@ -1,6 +1,6 @@
 {
   "name": "effort-slider-core",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "A reasoning-effort slider for agent tools: framework-free control, combustion WebGL fields, five presets",
   "license": "MIT",
   "type": "module",

@@ -41,6 +41,9 @@ written down as rules:
 7. **Only what is hot glows.**
 8. **The whole control is one moment.** The level's name rises into place and
    glows with the same light.
+9. **Nothing jumps.** Tempo changes (faster while you act, calmer after) bend
+   the motion; they never reset it. Every moving thing runs on one integrated
+   clock, and every frame is drawn.
 
 Effort, in every preset, is how far the event runs along the rail. Lowering it
 is an event too: the light recedes cell by cell from the far end, and the cells
@@ -206,8 +209,9 @@ it to `null` to restore the default.
   slider follows it; never pass it again and the slider keeps its own.
 - **Keyboard.** Arrow keys and Page Up/Down step one level; Home and End jump
   to the ends. Arrow directions flip in right-to-left layouts.
-- **Motion.** The energy keeps moving gently at rest, at half the frame rate,
-  and stops entirely at the lowest level, off screen, or in a hidden tab.
+- **Motion.** The light keeps living at rest, at full frame rate, and calms
+  smoothly after you act. It stops entirely once it is out at Off, off
+  screen, or in a hidden tab.
   With reduced motion (or `motion: 'still'`) the thumb jumps and the rail is
   drawn as a single still frame, with no catching or receding. At Off the
   rail is cleared completely.
@@ -344,7 +348,7 @@ docs/          DESIGN.md and README images
 
 ```sh
 npm install
-npm test         # 35 tests, plain Node
+npm test         # 36 tests, plain Node
 npm run build    # demo.html and dist/
 ```
 

@@ -18,6 +18,13 @@
 
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value))
 
+/**
+ * The flow clock wraps after this many units, about five hours of animation,
+ * to keep it within the GPU's float precision. That is the only place the
+ * motion can jump, and it is far beyond any normal session.
+ */
+const FLOW_WRAP = 20000
+
 /** Timing shared with the shader. Each cell scales these by its own hash h. */
 export const TIMING = Object.freeze({
   /** A catching cell waits up to this long before its front starts. */
@@ -63,10 +70,21 @@ export function eventLength(from, to) {
  *   fire.advance(dt)                // every frame
  *   fire.from, fire.to, fire.since  // what the shader needs
  */
+/**
+ * How fast the light lives at an intensity, with the person acting or not.
+ * Its integral is the `flow` clock: every wave, beat and swell is a constant
+ * times `flow`, so when the tempo changes the motion speeds up or slows down
+ * smoothly and never jumps.
+ */
+export function tempoOf(intensity, charge = 0) {
+  return (0.45 + 0.55 * clamp(intensity, 0, 1)) * (1 + 0.15 * clamp(charge, 0, 1))
+}
+
 export function createCombustion({ reach = 1 } = {}) {
   let from = 0
   let to = 0
   let since = 0
+  let flow = 0
   let scale = reach
 
   return {
@@ -78,6 +96,10 @@ export function createCombustion({ reach = 1 } = {}) {
     },
     get since() {
       return since
+    },
+    /** The integrated tempo clock (see `tempoOf`). Never jumps. */
+    get flow() {
+      return flow
     },
     /** True while cells are still catching, receding, or cooling as embers. */
     get changing() {
@@ -117,8 +139,12 @@ export function createCombustion({ reach = 1 } = {}) {
       since = eventLength(to, to) + 10
     },
 
-    advance(dt) {
-      if (dt > 0) since += dt
+    /** Advance by `dt` seconds, at `tempo` (from `tempoOf`). */
+    advance(dt, tempo = 1) {
+      if (!(dt > 0)) return
+      since += dt
+      if (tempo > 0) flow += dt * tempo
+      if (flow > FLOW_WRAP) flow -= FLOW_WRAP
     },
   }
 }

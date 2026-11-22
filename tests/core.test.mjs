@@ -10,6 +10,7 @@ import {
   createCombustion,
   eventLength,
   extentOf,
+  tempoOf,
   LEVEL_SETS,
   PRESETS,
   Spring,
@@ -232,6 +233,28 @@ test('a change of mind turns the fire around from where it is', () => {
   assert.ok(Math.abs(fire.meanExtent() - extentOf(0.3)) < 1e-9)
 })
 
+test('the flow clock never jumps when the tempo changes', () => {
+  // Regression: the shader used to compute phase as time * speed. When the
+  // speed relaxed after a selection, every wave jumped by (elapsed time *
+  // change in speed), so the longer the page had been open, the harder the
+  // fire stalled or ran backwards a couple of seconds after reaching the top.
+  const fire = createCombustion()
+  fire.target(1)
+  fire.advance(30, tempoOf(1, 0))
+  let charge = 1
+  let previous = fire.flow
+  for (let frame = 0; frame < 300; frame += 1) {
+    charge *= 0.97
+    const tempo = tempoOf(1, charge)
+    fire.advance(1 / 60, tempo)
+    const step = fire.flow - previous
+    assert.ok(step > 0, 'always moving forward')
+    assert.ok(step <= tempo / 60 + 1e-9, 'never more than one frame of motion')
+    previous = fire.flow
+  }
+  assert.ok(tempoOf(0) < tempoOf(1), 'more effort, faster life')
+})
+
 test('the fire stops asking for frames once it is out', () => {
   const fire = createCombustion()
   fire.target(0.8)
@@ -432,6 +455,9 @@ test('the shaders are complete GLSL ES 3.00 programs', () => {
   }
   // The shader times each cell with the same constants as the CPU side.
   assert.match(FIELD, /u_timing/)
+  // Motion that speeds up with effort reads the flow clock, never time * speed.
+  assert.doesNotMatch(FIELD, /\bts\b/)
+  assert.match(FIELD, /uniform float u_flow;/)
   // Off must leave the rail exactly empty: the 8-bit afterglow has to be able
   // to reach zero, and the dither must not paint an empty rail.
   assert.match(FIELD, /-vec2\(3\.0\/255\.0\)/)
@@ -445,7 +471,7 @@ test('the shaders are complete GLSL ES 3.00 programs', () => {
 
 test('every export in package.json points at a real file', async () => {
   const manifest = JSON.parse(await readFile(root('package.json'), 'utf8'))
-  assert.equal(manifest.version, '2.1.0')
+  assert.equal(manifest.version, '2.1.1')
   for (const target of Object.values(manifest.exports)) {
     const files = typeof target === 'string' ? [target] : Object.values(target)
     for (const file of files) await access(root(file.replace('./', '')))

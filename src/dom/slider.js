@@ -20,7 +20,7 @@ import { LEVEL_SETS, intensityAt, normalizeLevels } from '../core/levels.js'
 import { createSliderModel } from '../core/model.js'
 import { resolvePreset } from '../core/presets.js'
 import { Spring } from '../core/spring.js'
-import { createCombustion } from '../core/combustion.js'
+import { createCombustion, tempoOf } from '../core/combustion.js'
 import { EnergyRenderer } from '../render/renderer.js'
 import { injectStyles } from './styles.js'
 
@@ -102,7 +102,6 @@ export function createEffortSlider(host, initial = {}) {
   let destroyed = false
   let raf = 0
   let lastFrame = 0
-  let lastDraw = 0
   let charge = 0
   let squash = 0
   let settleUntil = 0
@@ -361,15 +360,8 @@ export function createEffortSlider(host, initial = {}) {
     if (destroyed || levels.length < 2 || width === 0) return
     const state = model.state
     const acting = state.dragging || state.pending || now < settleUntil
-    const calm = !acting && spring.settled && spring.value === state.target && charge === 0
-    // At rest the field only needs half the frame rate.
-    if (calm && !still && now - lastDraw < 30) {
-      raf = win.requestAnimationFrame(frame)
-      return
-    }
     const dt = lastFrame === 0 ? 1 / 60 : Math.min(0.05, (now - lastFrame) / 1000)
     lastFrame = now
-    lastDraw = now
 
     if (still) {
       spring.snap(state.target)
@@ -392,15 +384,18 @@ export function createEffortSlider(host, initial = {}) {
     const head = layout(ratio, level)
 
     if (renderer !== null) {
+      const tempo = tempoOf(level, charge)
       if (!still) {
         const scaled = dt * preset.params.speed
-        fire.advance(scaled)
+        fire.advance(scaled, tempo)
         fireTime += scaled
         burstAge += scaled
       }
       try {
         renderer.render({
           time: still ? STILL_TIME + seed : fireTime,
+          flow: still ? STILL_TIME + seed : fire.flow,
+          tempo,
           dt: still ? 0 : dt,
           head,
           edge: thumbHalf(),

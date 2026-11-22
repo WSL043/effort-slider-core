@@ -9,7 +9,7 @@
  *   const renderer = EnergyRenderer.create(canvas)   // null without WebGL2
  *   renderer.configure({ mode: 'fire', ramp: [...], dark: true, look: { rows: 6 } })
  *   renderer.resize(cssWidth, cssHeight)
- *   renderer.render({ time, dt, head, edge, level, charge, velocity, from, to, since, burst })
+ *   renderer.render({ time, flow, tempo, dt, head, edge, level, charge, velocity, from, to, since, burst })
  */
 import { TIMING } from '../core/combustion.js'
 import { buildRampTexture } from '../core/color.js'
@@ -68,7 +68,7 @@ export class EnergyRenderer {
     this.targets = null
     this.fresh = true
     this.field = this.program(FIELD, [
-      'u_res', 'u_back', 'u_time', 'u_keep', 'u_head', 'u_edge', 'u_rows', 'u_seed', 'u_from', 'u_to',
+      'u_res', 'u_back', 'u_time', 'u_flow', 'u_tempo', 'u_keep', 'u_head', 'u_edge', 'u_rows', 'u_seed', 'u_from', 'u_to',
       'u_since', 'u_level', 'u_charge', 'u_burst', 'u_vel', 'u_mode', 'u_p', 'u_timing',
     ])
     this.blur = this.program(BLUR, ['u_tex', 'u_step', 'u_threshold'])
@@ -228,7 +228,10 @@ export class EnergyRenderer {
   /**
    * Draw a frame.
    *
-   *   time     seconds of fire time (the caller decides how fast it runs)
+   *   time     seconds since the light started (for steady motions)
+   *   flow     the tempo clock from `createCombustion` (for motions that
+   *            speed up with effort); it must never jump
+   *   tempo    the current tempo, `tempoOf(level, charge)`
    *   dt       seconds since the last frame; 0 draws with no afterglow
    *   head     thumb centre, CSS pixels from the start of the rail
    *   edge     half the thumb's width, CSS pixels
@@ -238,7 +241,7 @@ export class EnergyRenderer {
    *   from, to, since   the current fire event (see core/combustion.js)
    *   burst    seconds since the last selection (large for none)
    */
-  render({ time = 0, dt = 1 / 60, head = 0, edge = 0, level = 0, charge = 0, velocity = 0, from = 0, to = 0, since = 99, burst = 99 } = {}) {
+  render({ time = 0, flow = time, tempo = 1, dt = 1 / 60, head = 0, edge = 0, level = 0, charge = 0, velocity = 0, from = 0, to = 0, since = 99, burst = 99 } = {}) {
     if (this.lost || this.targets === null) return
     const { gl, canvas, targets, look } = this
     const unit = this.cssHeight > 0 ? this.cssHeight : 1
@@ -258,6 +261,8 @@ export class EnergyRenderer {
     gl.uniform1i(u.u_back, 0)
     gl.uniform2f(u.u_res, canvas.width, canvas.height)
     gl.uniform1f(u.u_time, time)
+    gl.uniform1f(u.u_flow, flow)
+    gl.uniform1f(u.u_tempo, Math.max(0.05, tempo))
     gl.uniform1f(u.u_keep, keep)
     gl.uniform1f(u.u_head, head / unit)
     gl.uniform1f(u.u_edge, edge / unit)
