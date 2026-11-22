@@ -64,7 +64,8 @@ colour:
 ## See it
 
 Open **`demo.html`** (on Windows, double-click `demo.bat`). It is one
-self-contained file and runs from disk.
+self-contained file and runs from disk. The same page is served at
+<https://wsl043.github.io/effort-slider-core/>.
 
 ## Use it
 

@@ -59,6 +59,7 @@
 ## 試す
 
 `demo.html` を開くだけです(Windows は `demo.bat`)。1 ファイルで完結しています。
+同じページは <https://wsl043.github.io/effort-slider-core/> でも見られます。
 
 ## 使い方
 
