@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Interactive demo of effort-slider-core: a reasoning-effort slider with a WebGL renderer and presets drawn from natural phenomena">
+<title>Effort Slider Core</title>
+<link rel="icon" href="data:,">
+<style>:root {
+  --bg: #f5f4f7;
+  --panel: #ffffff;
+  --sunk: #ebe9ef;
+  --line: #dfdde5;
+  --text: #1a191e;
+  --muted: #6a6775;
+  --stage: #ffffff;
+  color-scheme: light;
+  font-family: "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+}
+
+:root[data-theme=dark] {
+  --bg: #131217;
+  --panel: #1b1a20;
+  --sunk: #25232b;
+  --line: #2e2c36;
+  --text: #f1f0f5;
+  --muted: #9b98a7;
+  --stage: #1b1a20;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  width: min(980px, 100%);
+  margin-inline: auto;
+  padding: 20px 24px 48px;
+}
+
+h1, h2, h3 {
+  margin: 0;
+  font-family: "Segoe UI Variable Display", "Avenir Next", "Segoe UI", -apple-system, "Helvetica Neue", "Hiragino Sans", system-ui, sans-serif;
+  font-weight: 620;
+  letter-spacing: -0.022em;
+  line-height: 1.12;
+}
+
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+
+/* ---------------------------------------------------------------- header */
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.mark { font-weight: 620; letter-spacing: -0.01em; }
+.mark small { margin-inline-start: 8px; padding: 2px 7px; border-radius: 6px; background: var(--sunk); color: var(--muted); font-size: 12px; font-weight: 500; }
+.top .control { flex-direction: row; align-items: center; }
+.top .control-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+
+.intro { margin-top: 56px; max-width: 640px; }
+.intro h1 { font-size: clamp(32px, 5.4vw, 52px); }
+.intro p { margin: 18px 0 0; color: var(--muted); font-size: 17px; }
+
+/* ----------------------------------------------------------------- stage */
+
+.stage {
+  margin-top: 40px;
+  padding: clamp(20px, 4vw, 40px);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--stage);
+}
+
+.readout {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 26px;
+}
+
+.readout-level { display: flex; flex-direction: column; min-width: 0; }
+
+.readout-name {
+  font-family: "Segoe UI Variable Display", "Avenir Next", "Segoe UI", -apple-system, "Helvetica Neue", system-ui, sans-serif;
+  font-size: clamp(54px, 11vw, 104px);
+  font-weight: 640;
+  letter-spacing: -0.045em;
+  line-height: 0.95;
+}
+
+.readout-hint { margin-top: 10px; color: var(--muted); font-size: 16px; min-height: 1.55em; }
+.readout-status { color: var(--muted); font-size: 13px; text-align: end; min-height: 1.55em; }
+
+.log {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 40px;
+  margin: 22px 0 0;
+  padding: 0;
+  list-style: none;
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.log li:first-child { color: var(--text); }
+.log:empty::before { content: "Pick a level: each gesture calls onChange once."; font-family: inherit; }
+
+/* -------------------------------------------------------------- controls */
+
+.panel { margin-top: 14px; padding: 20px clamp(20px, 4vw, 40px); border: 1px solid var(--line); border-radius: 22px; background: var(--panel); }
+.controls { display: flex; flex-wrap: wrap; gap: 18px 28px; }
+.control { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.control-label { color: var(--muted); font-size: 12.5px; }
+
+.segmented { display: flex; flex-wrap: wrap; padding: 3px; border-radius: 10px; background: var(--sunk); }
+.segmented button { min-height: 30px; padding: 0 11px; border: 0; border-radius: 7px; background: none; color: var(--muted); font-size: 13px; }
+.segmented button[aria-pressed=true] { background: var(--panel); color: var(--text); box-shadow: 0 1px 3px #00000022; }
+
+.accent { display: flex; align-items: center; gap: 12px; min-height: 36px; }
+.accent input { width: 44px; height: 32px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); cursor: pointer; }
+.link { padding: 0; border: 0; background: none; color: var(--muted); font-size: 13px; text-decoration: underline; text-underline-offset: 3px; }
+
+.toggles { flex-direction: row; flex-wrap: wrap; gap: 10px 24px; align-self: flex-end; }
+.toggle { display: flex; align-items: flex-start; gap: 9px; cursor: pointer; }
+.toggle input { width: 16px; height: 16px; margin: 3px 0 0; accent-color: var(--text); }
+.toggle span { display: flex; flex-direction: column; }
+.toggle b { font-size: 13.5px; font-weight: 560; }
+.toggle small { color: var(--muted); font-size: 12px; }
+
+/* --------------------------------------------------------------- gallery */
+
+.presets, .usage { margin-top: 64px; }
+.presets h2, .usage h2 { font-size: 26px; }
+.section-lede { max-width: 620px; margin: 10px 0 0; color: var(--muted); }
+
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.preset { display: flex; flex-direction: column; min-width: 0; padding: 18px 18px 20px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); }
+.preset[data-current] { border-color: var(--text); }
+.preset-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.preset h3 { font-size: 17px; }
+.preset .phenomenon { flex: none; margin: 2px 0 0; color: var(--text); font-size: 12.5px; opacity: .72; }
+.preset p { flex: 1; margin: 6px 0 16px; color: var(--muted); font-size: 13.5px; line-height: 1.45; }
+.use { padding: 0; border: 0; background: none; color: var(--muted); font-size: 12.5px; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+.use:disabled { color: var(--text); text-decoration: none; cursor: default; }
+
+/* ----------------------------------------------------------------- usage */
+
+.snippet { position: relative; margin-top: 20px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); }
+.snippet pre { margin: 0; padding: 20px 22px; overflow-x: auto; font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace; font-size: 13px; line-height: 1.6; }
+.copy { position: absolute; top: 12px; inset-inline-end: 12px; min-height: 30px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); font-size: 12.5px; }
+
+footer { margin-top: 56px; color: var(--muted); font-size: 13px; }
+footer p { margin: 0; }
+
+@media (max-width: 560px) {
+  #app { padding-inline: 16px; }
+  .intro { margin-top: 36px; }
+  .readout { flex-direction: column; align-items: flex-start; }
+  .readout-status { text-align: start; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>(()=>{var nr=/^#([0-9a-f]{6}|[0-9a-f]{3})$/i,ue=t=>Math.max(0,Math.min(1,t));function fe(t){return typeof t=="string"&&nr.test(t)}function dt(t){if(!fe(t))return null;let e=t.replace("#","");return e.length===3&&(e=[...e].map(n=>n+n).join("")),[0,2,4].map(n=>Number.parseInt(e.slice(n,n+2),16)/255)}function Ue(t){return`#${t.map(e=>Math.round(ue(e)*255).toString(16).padStart(2,"0")).join("")}`}var Oe=t=>t<=.04045?t/12.92:Math.pow((t+.055)/1.055,2.4),or=t=>t<=.0031308?t*12.92:1.055*Math.pow(t,1/2.4)-.055;function ut([t,e,n]){let r=Oe(t),a=Oe(e),o=Oe(n),i=Math.cbrt(.4122214708*r+.5363325363*a+.0514459929*o),c=Math.cbrt(.2119034982*r+.6806995451*a+.1073969566*o),b=Math.cbrt(.0883024619*r+.2817188376*a+.6299787005*o);return[.2104542553*i+.793617785*c-.0040720468*b,1.9779984951*i-2.428592205*c+.4505937099*b,.0259040371*i+.7827717662*c-.808675766*b]}function he([t,e,n]){let r=Math.pow(t+.3963377774*e+.2158037573*n,3),a=Math.pow(t-.1055613458*e-.0638541728*n,3),o=Math.pow(t-.0894841775*e-1.291485548*n,3);return[4.0767416621*r-3.3077115913*a+.2309699292*o,-1.2684380046*r+2.6097574011*a-.3413193965*o,-.0041960863*r-.7034186147*a+1.707614701*o].map(i=>ue(or(ue(i))))}function N(t,e,n){let r=n*Math.PI/180;for(let a=e;a>=0;a-=.004){let o=[t,a*Math.cos(r),a*Math.sin(r)],i=Math.pow(o[0]+.3963377774*o[1]+.2158037573*o[2],3),c=Math.pow(o[0]-.1055613458*o[1]-.0638541728*o[2],3),b=Math.pow(o[0]-.0894841775*o[1]-1.291485548*o[2],3);if([4.0767416621*i-3.3077115913*c+.2309699292*b,-1.2684380046*i+2.6097574011*c-.3413193965*b,-.0041960863*i-.7034186147*c+1.707614701*b].every(v=>v>=-5e-4&&v<=1.0005))return Ue(he(o))}return Ue(he([t,0,0]))}function ht(t,e){let n=t.map(i=>ut(dt(i)??[.5,.5,.5]));if(n.length===1)return he(n[0]);let r=ue(e)*(n.length-1),a=Math.min(n.length-2,Math.floor(r)),o=r-a;return he(n[a].map((i,c)=>i+(n[a+1][c]-i)*o))}function Ie(t,e){return Ue(ht(t,e))}function ft(t,e=64){let n=new Uint8Array(e*4);for(let r=0;r<e;r+=1){let[a,o,i]=ht(t,r/(e-1));n[r*4]=Math.round(a*255),n[r*4+1]=Math.round(o*255),n[r*4+2]=Math.round(i*255),n[r*4+3]=255}return n}function mt(t,e="to right",n=7){let r=Array.from({length:n},(a,o)=>Ie(t,o/(n-1)));return`linear-gradient(${e}, ${r.join(", ")})`}function pt(t){let e=dt(t);if(e===null)return null;let[n,r,a]=ut(e),o=Math.max(.04,Math.hypot(r,a)),i=Math.atan2(a,r)*180/Math.PI,b=Math.hypot(r,a)<.02?0:1;return{dark:{track:N(.165,.012*b,i),ramp:[N(.34,Math.min(o,.15)*b,i+16),N(Math.max(.58,Math.min(.74,n)),o*b,i),N(.85,o*.7*b,i-20),N(.975,o*.16*b,i-28)]},light:{track:N(.952,.006*b,i),ramp:[N(.87,o*.42*b,i+10),N(Math.max(.5,Math.min(.62,n)),o*b,i),N(.43,o*.95*b,i-10),N(.31,o*.8*b,i-16)]}}}var re=t=>Math.max(0,Math.min(1,Number.isFinite(t)?t:0)),gt=t=>t.charAt(0).toUpperCase()+t.slice(1);function bt(t){let e=re(t);return e<=0?0:Math.pow(e,1.5)}function ze(t){if(!Array.isArray(t))return[];let e=new Set,n=[];for(let a of t){let o;if(typeof a=="string"&&a.length>0)o={id:a,name:gt(a)};else if(a!==null&&typeof a=="object"&&typeof a.id=="string"&&a.id.length>0){let i=typeof a.name=="string"&&a.name.length>0?a.name:gt(a.id);o={...a,name:i}}else continue;e.has(o.id)||(e.add(o.id),n.push(o))}if(n.length<2)return[];let r=n.length-1;return n.map((a,o)=>{let i=o/r,c=Number.isFinite(a.intensity)?re(a.intensity):bt(i);return Object.freeze({...a,index:o,ratio:i,intensity:c})})}function ae(t,e){return Array.isArray(t)?t.findIndex(n=>n.id===e):-1}function je(t,e){return t>1?Math.round(re(e)*(t-1)):0}function q(t,e){return t>1?Math.max(0,Math.min(t-1,e))/(t-1):0}function Be(t,e){if(!Array.isArray(t)||t.length<2)return 0;let n=re(e)*(t.length-1),r=Math.min(t.length-2,Math.floor(n)),a=n-r;return t[r].intensity+(t[r+1].intensity-t[r].intensity)*a}function Ne(t,e,n=.5){let r=re(t);if(!(e>1)||!(n>0))return r;let a=r*(e-1),o=Math.round(a),i=a-o,c=Math.sign(i)*.5*Math.pow(Math.abs(i)*2,1+Math.min(1,n)*2);return(o+c)/(e-1)}var te=t=>Object.freeze(t.map(e=>Object.freeze(e))),X=Object.freeze({binary:te([{id:"off",name:"Off",hint:"Answers straight away"},{id:"on",name:"On",hint:"Thinks before answering"}]),triad:te([{id:"low",name:"Low",hint:"Quick answers, light checking"},{id:"medium",name:"Medium",hint:"Balanced speed and care"},{id:"high",name:"High",hint:"Works through the problem"}]),quad:te([{id:"off",name:"Off",hint:"Answers straight away"},{id:"low",name:"Low",hint:"A brief check before answering"},{id:"high",name:"High",hint:"Works through the problem"},{id:"max",name:"Max",hint:"Takes as long as it needs"}]),penta:te([{id:"minimal",name:"Minimal",hint:"Fastest, no deliberate reasoning"},{id:"low",name:"Low",hint:"A brief check before answering"},{id:"medium",name:"Medium",hint:"Balanced speed and care"},{id:"high",name:"High",hint:"Works through the problem"},{id:"max",name:"Max",hint:"Takes as long as it needs"}]),budget:te([{id:"off",name:"Off",hint:"No thinking budget",budgetTokens:0,intensity:0},{id:"2k",name:"2k",hint:"Up to 2,000 thinking tokens",budgetTokens:2e3,intensity:.14},{id:"8k",name:"8k",hint:"Up to 8,000 thinking tokens",budgetTokens:8e3,intensity:.34},{id:"16k",name:"16k",hint:"Up to 16,000 thinking tokens",budgetTokens:16e3,intensity:.56},{id:"32k",name:"32k",hint:"Up to 32,000 thinking tokens",budgetTokens:32e3,intensity:.78},{id:"64k",name:"64k",hint:"Up to 64,000 thinking tokens",budgetTokens:64e3,intensity:1}])});function vt({levels:t=[],value:e,magnet:n=.5,keyDelay:r=160,onState:a,onPreview:o,onCommit:i,onReject:c,setTimer:b=(v,y)=>setTimeout(v,y),clearTimer:m=v=>clearTimeout(v)}={}){let v=t,y=Math.max(0,ae(v,e)),l=y,T=q(v.length,y),x=!1,S=!1,w=!1,k=0,E=null,g={onState:a,onPreview:o,onCommit:i,onReject:c},L=n,_=()=>({target:T,preview:l,committed:y,dragging:x,pending:S,level:v[l]}),O=f=>g.onState?.(_(),f),F=f=>{f!==l&&(l=f,g.onPreview?.(v[f]))},U=()=>{E!==null&&(m(E),E=null)},V=(f,D,R)=>{if(D&&(y=f),R===k){if(S=!1,D){O("commit");return}x||(F(y),T=q(v.length,y)),g.onReject?.(v[f]),O("reject")}},j=(f,D=!0)=>{if(U(),F(f),T=q(v.length,f),D&&O("settle"),f===y&&!S)return;k+=1;let R=k,C;try{C=g.onCommit?.(v[f].id,v[f])}catch{V(f,!1,R);return}if(C!==null&&typeof C=="object"&&typeof C.then=="function"){S=!0,O("pending"),C.then(ie=>V(f,ie!==!1,R),()=>V(f,!1,R));return}V(f,C!==!1,R)},B=()=>!w&&v.length>1;return{get state(){return _()},setLevels(f,D){let R=D??v[y]?.id;v=f,U(),k+=1,S=!1,x=!1,y=Math.max(0,ae(v,R)),l=y,T=q(v.length,y),O("value")},setValue(f){let D=ae(v,f);D<0||D===y||(y=D,!(x||S||E!==null)&&(l=y,T=q(v.length,y),O("value")))},setDisabled(f){w=!!f,w&&x&&this.dragCancel()},setMagnet(f){L=Number.isFinite(f)?f:L},setHandlers(f){g={...g,...f}},dragStart(f){B()&&(U(),x=!0,this.dragMove(f))},dragMove(f){x&&(T=Ne(f,v.length,L),F(je(v.length,f)),O("drag"))},dragEnd(){x&&(x=!1,j(l))},dragCancel(){x&&(x=!1,F(y),T=q(v.length,y),O("cancel"))},stepBy(f){!B()||x||this.previewIndex(l+f)},previewIndex(f){if(!B()||x)return;let D=Math.max(0,Math.min(v.length-1,f));U(),F(D),T=q(v.length,D),O("settle"),E=b(()=>{E=null,j(D,!1)},r)},jumpTo(f){!B()||x||j(Math.max(0,Math.min(v.length-1,f)))},flush(){E!==null&&(U(),j(l,!1))},destroy(){U(),k+=1,g={}}}}var yt=Object.freeze(["fire","synapse","frost","plankton"]),Xe=Object.freeze(["pill","orb","block","bar"]),wt=Object.freeze({reach:1,rows:6,fill:.72,flicker:1,sparks:1,persistence:.87,bloom:1,threshold:.55,gain:1,glow:.6,speed:1}),sr=Object.freeze({reach:[.2,1.5],rows:[3,12],fill:[.3,1],flicker:[0,2],sparks:[0,3],persistence:[0,.97],bloom:[0,3],threshold:[0,1.5],gain:[.2,3],glow:[0,2],speed:[.1,3]}),ne=t=>Object.freeze({...t,params:Object.freeze({...wt,...t.params}),dark:Object.freeze({track:t.dark.track,ramp:Object.freeze([...t.dark.ramp])}),light:Object.freeze({track:t.light.track,ramp:Object.freeze([...t.light.ramp])})}),J=Object.freeze({flame:ne({id:"flame",name:"Flame",phenomenon:"Fire",description:"The rail catches cell by cell, white at the source and violet as it cools. The default.",mode:"fire",thumb:"pill",params:{},dark:{track:"#0c0c0e",ramp:["#2a1250","#7a3bd6","#a857f7","#dcc4ff","#fff7fd"]},light:{track:"#ecebf0",ramp:["#d9c8f7","#a57ae9","#7c3fd8","#5a22b0","#3a1078"]}}),ember:ne({id:"ember",name:"Ember",phenomenon:"Coals",description:"The same fire burning low and warm: larger cells, slower, longer afterglow.",mode:"fire",thumb:"pill",params:{rows:5,flicker:.8,sparks:1.7,persistence:.93,speed:.75,bloom:1.15},dark:{track:"#0f0b0a",ramp:["#3a0c04","#9c2a0c","#e8621f","#ffb45e","#fff1d8"]},light:{track:"#efebe8",ramp:["#f2c4a4","#e07a3e","#c24b14","#8f2c06","#561602"]}}),synapse:ne({id:"synapse",name:"Synapse",phenomenon:"Nerve signals",description:"The source beats, and each beat finds its own path through the cells. More effort, more beats, further.",mode:"synapse",thumb:"orb",params:{rows:7,fill:.62,persistence:.84,bloom:1.2,threshold:.45},dark:{track:"#0a0b12",ramp:["#14204f","#2f55d8","#5fa8ff","#c9e4ff","#ffffff"]},light:{track:"#e9ebf3",ramp:["#c3cff5","#6f8fe8","#2f55d8","#1b3496","#0e1d5c"]}}),frost:ne({id:"frost",name:"Frost",phenomenon:"Freezing",description:"Cold spreads from the thumb and the cells freeze one by one, then hold still and glint.",mode:"frost",thumb:"block",params:{rows:6,fill:.78,flicker:1,persistence:.92,bloom:.9,threshold:.6,speed:.9},dark:{track:"#0b0e12",ramp:["#11304a","#3d7fb0","#9cd2f0","#e4f6ff","#ffffff"]},light:{track:"#e8eef2",ramp:["#bfdcec","#6fb0d6","#2f7fb0","#165781","#0a3352"]}}),plankton:ne({id:"plankton",name:"Plankton",phenomenon:"Bioluminescence",description:"Dark water that lights only where it is stirred: by the thumb, by a swell from the source, by a choice.",mode:"plankton",thumb:"orb",params:{rows:6,fill:.7,persistence:.95,bloom:1.3,threshold:.4},dark:{track:"#070d0e",ramp:["#06323a","#0f8c8c","#3fe0c8","#c4fff2","#ffffff"]},light:{track:"#e7efee",ramp:["#b2e3db","#4fbfb0","#138a82","#0b5d59","#063a38"]}})}),kt="flame",ir=(t,e)=>{if(!Array.isArray(t))return e;let n=t.filter(fe);return n.length>=2?n:e},me=(t,e)=>({track:fe(t?.track)?t.track:e.track,ramp:ir(t?.ramp,e.ramp)}),xt=(t,e)=>{let n={...e};if(t===null||typeof t!="object")return n;for(let[r,[a,o]]of Object.entries(sr))Number.isFinite(t[r])&&(n[r]=Math.max(a,Math.min(o,t[r])));return n};function pe(t,e={}){let n=typeof t=="string"?J[t]:void 0,r=t!==null&&typeof t=="object"?t:void 0,a=n??(r&&J[r.extends])??J[kt],o=r??a,i=me(o.dark,a.dark),c=me(o.light,a.light),b=pt(e.accent);return b!==null&&(i=b.dark,c=b.light),e.colors!==null&&typeof e.colors=="object"&&(i=me(e.colors.dark,i),c=me(e.colors.light,c)),{id:typeof o.id=="string"?o.id:"custom",name:typeof o.name=="string"?o.name:"Custom",mode:yt.includes(o.mode)?o.mode:a.mode,thumb:Xe.includes(e.thumb)?e.thumb:Xe.includes(o.thumb)?o.thumb:a.thumb,params:xt(e.params,xt(o.params,a.params)),dark:i,light:c}}var ge=class{constructor({value:e=0,stiffness:n=420,damping:r=30,mass:a=1,precision:o=4e-4}={}){this.value=e,this.target=e,this.velocity=0,this.stiffness=n,this.damping=r,this.mass=a,this.precision=o}snap(e){this.value=e,this.target=e,this.velocity=0}get settled(){return Math.abs(this.target-this.value)<this.precision&&Math.abs(this.velocity)<this.precision*10}step(e){if(!(e>0))return this.value;let n=Math.max(1,Math.ceil(Math.min(e,.1)/.004)),r=Math.min(e,.1)/n;for(let a=0;a<n;a+=1){let o=(this.target-this.value)*this.stiffness-this.velocity*this.damping;this.velocity+=o/this.mass*r,this.value+=this.velocity*r}return this.settled&&(this.value=this.target,this.velocity=0),this.value}};var Ge=(t,e,n)=>Math.max(e,Math.min(n,t)),z=Object.freeze({igniteDelay:.9,igniteDuration:2.2,quenchDelay:.45,quenchDuration:.9});function _t(t,e=1){return t>.001?Ge((.12+.88*Math.pow(Ge(t,0,1),1.1))*e,0,1):0}var lr=t=>1-Math.pow(1-t,3),cr=t=>t*t*(3-2*t);function dr(t,e,n,r=.5){let a=e>=t,o=a?r*z.igniteDelay:(1-r)*z.quenchDelay,i=(a?z.igniteDuration:z.quenchDuration)/(.85+.3*r),c=Ge((n-o)/i,0,1);return t+(e-t)*(a?lr(c):cr(c))}function Tt(t,e){return e>=t?z.igniteDelay+z.igniteDuration/.85:z.quenchDelay+z.quenchDuration/.85}function Et({reach:t=1}={}){let e=0,n=0,r=0,a=t;return{get from(){return e},get to(){return n},get since(){return r},get changing(){return r<Tt(e,n)+2.5},get burning(){return n>0||this.changing},meanExtent(){return dr(e,n,r)},setReach(o){Number.isFinite(o)&&o>0&&(a=o)},target(o){let i=_t(o,a);return Math.abs(i-n)<5e-4?!1:(e=this.meanExtent(),n=i,r=0,!0)},settle(o){n=_t(o,a),e=n,r=Tt(n,n)+10},advance(o){o>0&&(r+=o)}}}var At=`#version 300 es
+in vec2 a_position;
+out vec2 v_uv;
+void main(){v_uv=a_position*0.5+0.5;gl_Position=vec4(a_position,0.0,1.0);}`,Mt=`#version 300 es
+precision highp float;
+in vec2 v_uv;
+uniform vec2 u_res;
+uniform sampler2D u_back;
+uniform float u_time;
+uniform float u_keep;
+uniform float u_head;
+uniform float u_edge;
+uniform float u_rows;
+uniform float u_seed;
+uniform float u_from;
+uniform float u_to;
+uniform float u_since;
+uniform float u_level;
+uniform float u_charge;
+uniform float u_burst;
+uniform float u_vel;
+uniform float u_mode;
+uniform vec4 u_p;        // flicker, sparks, fill, gain
+uniform vec4 u_timing;   // catchDelay, catchDuration, releaseDelay, releaseDuration
+out vec4 o;
+
+const float TAU=6.2831853;
+float hash(vec2 p){p=fract(p*vec2(233.34,851.73));p+=dot(p,p+23.45);return fract(p.x*p.y);}
+
+// ---- the cell, shared by every mode
+vec2 id;
+float h,h2,t,lv,ts,x,source,d,filled,at,k,delay,dur,extent,running,across,body,behind,lit;
+bool grow;
+
+// ---- what this frame adds: energy, and energy-weighted temperature
+float E=0.0,W=0.0;
+void add(float e,float temp){E+=e;W+=e*clamp(temp,0.0,1.0);}
+
+bool inside(){return extent>0.002&&d>-0.02&&d<=extent;}
+float dnOf(){return clamp(d/max(extent,1e-3),0.0,1.0);}
+
+// The moment this cell's own front reached it while the event was growing.
+// Negative when it has not been reached by this event.
+float joinedAgo(){
+  if(!grow||at<=u_from)return -1.0;
+  float share=clamp((at-u_from)/max(u_to-u_from,1e-3),0.0,1.0);
+  return u_since-(delay+(1.0-pow(1.0-share,1.0/3.0))*dur);
+}
+// Seconds since this cell's front left it while the event was shrinking.
+float leftAgo(){
+  if(grow||at<=u_to||at>=u_from+0.03||d<=extent)return -1.0;
+  float share=clamp((u_from-at)/max(u_from-u_to,1e-3),0.0,1.0);
+  return u_since-(delay+share*dur);
+}
+
+// ------------------------------------------------------------------ fire
+void fireMode(){
+  if(inside()){
+    float dn=dnOf();
+    float bright=pow(1.0-dn,0.65);
+    // Flames: three waves of different length run away from the source;
+    // each cell is out of phase with its neighbours, so they shimmer apart.
+    float wave=sin(d*2.4-t*15.0*ts+h*TAU)+0.5*sin(d*1.4-t*8.0*ts+h*3.1)+0.25*sin(d*4.2-t*25.0*ts+h*10.0);
+    float flame=smoothstep(0.08,0.92,wave*0.35*u_p.x+0.5);
+    // Pulse: beats leave the source, measured along the fire itself.
+    float beat=sin(dn*16.0-t*5.0*ts+h*3.0);
+    float swell=sin(dn*8.0-t*2.5*ts+h*5.0);
+    float pulse=pow(max(smoothstep(-0.15,0.55,beat)*(swell*0.5+0.5),0.0),1.2);
+    add(bright*body*(flame*0.42+pulse*0.38)*mix(0.3,1.0,lv)*1.35,pow(1.0-dn,1.5));
+    float ago=joinedAgo();
+    if(ago>=0.0)add(exp(-ago*3.2)*bright*body*0.6,min(1.0,1.2-dn));
+    add(exp(-pow((d-u_burst*4.0)*2.2,2.0))*exp(-u_burst*1.6)*body*0.5,0.95);
+  }
+  if(extent>0.002){
+    // The burning edge flickers hardest while it runs, then smoulders.
+    float shimmer=(0.5+0.5*sin(d*3.6+t*20.0*ts+h*TAU))*(0.5+0.5*sin(d*2.2+t*11.0*ts+h*3.1));
+    add(exp(-pow((d-extent)*1.6,2.0))*(0.25+1.5*shimmer)*mix(0.35,1.0,lv)*mix(0.18,0.9,running),0.7);
+    // Sparks run ahead of it, into the dark.
+    float lead=d-extent;
+    float zone=smoothstep(0.9,0.0,lead)*step(0.0,lead)*body;
+    add(zone*step(0.6,h2)*(0.5+0.5*sin(lead*8.0+t*20.0*ts+h2*TAU))*smoothstep(0.45,1.0,lv)*mix(0.15,0.6,running),0.8);
+  }
+  // Sparks thrown back along each row.
+  if(extent>0.002&&d>0.0&&d<extent){
+    float count=floor(u_p.y*3.0+0.5);
+    for(int i=0;i<9;i++){
+      if(float(i)>=count)break;
+      float hr=hash(vec2(id.y,float(i)*7.3)+u_seed);
+      float run=fract(t*(0.38+hr*0.15)*ts+hr*7.0);
+      float sx=source-run*extent;
+      add(smoothstep(0.75/u_rows,0.0,abs(x-sx))*(1.0-run)*(1.0-run)*mix(0.3,1.0,lv)*0.7,0.9);
+    }
+  }
+  // Going out: cells the fire has left keep an ember for a moment.
+  float left=leftAgo();
+  if(left>0.0)add(exp(-left*1.4)*step(0.4,h2)*(0.55+0.45*sin(t*6.0+h*20.0))*body*0.45,0.25);
+  // The source: a white core under the thumb, and a halo.
+  add(exp(-pow(d*1.3,2.0))*(0.4+1.6*lv)*(1.0+0.15*sin(t*2.8))*lit*body*behind,1.0);
+  add(exp(-pow(d*0.28,2.0))*0.12*lv*lit*behind,0.6);
+}
+
+// --------------------------------------------------------------- synapse
+void synapseMode(){
+  float rate=mix(0.7,2.4,lv)*(1.0+0.5*u_charge);
+  float speed=mix(3.5,7.0,lv);
+  if(inside()){
+    float dn=dnOf();
+    // Each beat leaves the source at n / rate. Every row conducts at its own
+    // speed and every cell answers a little early or late, so a beat arrives
+    // as a scatter, never as a column.
+    float rowSpeed=speed*mix(0.7,1.3,hash(vec2(id.y,3.7)+u_seed));
+    float phase=(t-d/rowSpeed-h*0.22)*rate;
+    float n=floor(phase);
+    float age=fract(phase)/rate;
+    // A cell passes a beat on only by chance, less often far from the
+    // source, and the dice are thrown again for every beat: each beat takes
+    // its own path.
+    float chance=mix(0.7,0.12,dn)*mix(0.6,1.0,lv);
+    float fires=step(hash(id+vec2(n*1.37,n*0.71)+u_seed),chance);
+    add(fires*exp(-age*10.0)*body*mix(1.2,0.6,dn),mix(0.55,1.0,exp(-age*14.0)));
+    // The network itself: faint where signals travel.
+    add(body*0.045*(0.4+0.6*h)*(1.0-dn),0.1);
+    float ago=joinedAgo();
+    if(ago>=0.0)add(exp(-ago*4.0)*body*0.5*(1.0-dn*0.5),0.95);
+    // A selection: one beat every cell passes on.
+    float since=u_burst-d/rowSpeed-h*0.1;
+    add(step(0.0,since)*exp(-since*7.0)*exp(-u_burst*0.5)*body*0.9,0.95);
+  }
+  // The front: where beats die out, a few cells still twitch.
+  if(extent>0.002){
+    float near=exp(-pow((d-extent)*2.0,2.0))*body;
+    float twitch=pow(max(sin(t*(3.0+4.0*h2)+h*TAU),0.0),12.0);
+    add(near*twitch*mix(0.25,0.8,running)*mix(0.4,1.0,lv),0.8);
+  }
+  // Going out: the last signals fade without being passed on.
+  float left=leftAgo();
+  if(left>0.0)add(exp(-left*2.2)*step(0.55,h2)*body*0.35,0.4);
+  // The source fires with every beat.
+  float sinceBeat=fract(t*rate)/rate;
+  add(exp(-pow(d*1.3,2.0))*(0.3+1.1*exp(-sinceBeat*7.0))*mix(0.5,1.0,lv)*lit*body*behind,1.0);
+}
+
+// ----------------------------------------------------------------- frost
+void frostMode(){
+  if(inside()){
+    float dn=dnOf();
+    // Frozen: each crystal has its own density, and holds still.
+    float crystal=body*pow(1.0-dn,0.5)*(0.2+0.3*h)*mix(0.5,1.0,lv);
+    add(crystal,0.28+0.3*(1.0-dn));
+    // Glints: rare and sharp, each crystal at its own moment.
+    float rate=mix(0.12,0.45,h2)*mix(0.7,1.3,lv)*u_p.x;
+    float glint=pow(max(sin(t*rate*TAU*0.5+h*40.0),0.0),160.0)*step(0.5,h)*(1.0-dn*0.6);
+    add(glint*1.4,1.0);
+    // Cold breath: a slow bright band leaves the source every few seconds.
+    float breath=fract(t*0.26*mix(0.7,1.3,lv));
+    add(exp(-pow((dn-breath)*7.0,2.0))*body*0.3*(1.0-breath),0.75);
+    float ago=joinedAgo();
+    if(ago>=0.0)add(exp(-ago*2.2)*body*0.55,0.95);
+  }
+  if(extent>0.002){
+    // The freezing line: thin and white while it advances.
+    add(exp(-pow((d-extent)*2.6,2.0))*body*(0.7+0.3*sin(t*7.0+h*TAU))*mix(0.2,0.95,running),0.95);
+    // Needles: a few crystals already reach into the open rail.
+    float lead=d-extent;
+    float zone=smoothstep(0.7,0.0,lead)*step(0.0,lead);
+    add(zone*step(0.74,h2)*(0.4+0.6*h)*mix(0.25,0.7,running)*body*0.5,0.7);
+  }
+  // Going out: crystals melt, brightening once as they let go.
+  float left=leftAgo();
+  if(left>0.0)add(exp(-left*0.9)*(0.6+0.4*cos(left*5.0))*step(0.35,h2)*body*0.4,0.5);
+  // The source: a small, steady cold light.
+  add(exp(-pow(d*1.6,2.0))*(0.3+0.9*lv)*lit*body*behind,1.0);
+}
+
+// -------------------------------------------------------------- plankton
+void planktonMode(){
+  // Each organism answers only when the stir beats its own threshold.
+  float threshold=mix(0.12,0.8,h2);
+  if(inside()){
+    float dn=dnOf();
+    // Swells leave the source; more effort sends them more often and further.
+    float period=mix(4.2,1.7,lv);
+    float age=fract(t/period+h*0.02)*period;
+    float front=age*mix(2.4,4.6,lv);
+    float swell=exp(-pow((d-front)*7.0,2.0))*(1.0-smoothstep(extent*0.6,extent,front));
+    // A selection: one strong push.
+    float push=exp(-pow((d-u_burst*5.0)*5.0,2.0))*exp(-u_burst*0.7)*1.5;
+    // Not every organism is roused by every swell.
+    float n=floor(t/period+h*0.02);
+    float awake=step(hash(id+vec2(n*2.1,n*0.3)+u_seed),mix(0.35,0.7,lv));
+    float answer=smoothstep(threshold,threshold+0.12,(swell*mix(0.7,1.1,lv))*awake+push*step(0.3,h));
+    add(answer*body*mix(1.0,0.6,dn),0.85);
+    // Resting: now and then one of them glows on its own.
+    add(pow(max(sin(t*mix(0.25,0.8,h)+h*50.0),0.0),90.0)*(1.0-dn)*mix(0.2,0.7,lv)*body,0.7);
+    // The water itself, barely there.
+    add(body*0.03*(1.0-dn),0.1);
+    float ago=joinedAgo();
+    if(ago>=0.0)add(exp(-ago*3.0)*step(0.5,h)*body*0.5,0.9);
+  }
+  // The thumb's wake: moving it stirs the water around it.
+  float stir=min(abs(u_vel)*0.5,1.6);
+  float wake=exp(-pow(d*1.2,2.0))*stir*smoothstep(-0.5,0.1,d);
+  add(smoothstep(threshold,threshold+0.15,wake)*step(0.35,h)*body,0.85);
+  // Going out: the last of them fade back into the dark.
+  float left=leftAgo();
+  if(left>0.0)add(exp(-left*1.6)*step(0.6,h2)*body*0.3,0.5);
+  // The source: dim, brighter while the water is stirred.
+  add(exp(-pow(d*1.4,2.0))*(0.15+0.5*lv+0.6*min(stir,1.0))*lit*body*behind,0.95);
+}
+
+void main(){
+  vec2 p=gl_FragCoord.xy/u_res.y;
+  vec2 g=p*u_rows;
+  id=floor(g);
+  vec2 cf=fract(g)-0.5;
+  h=hash(id+u_seed);
+  h2=hash(id+vec2(41.0,17.0)+u_seed);
+  t=u_time;
+  lv=u_level;
+  ts=mix(0.45,1.0,lv)*(1.0+0.2*u_charge);
+
+  x=(id.x+0.5)/u_rows;
+  source=max(u_head-u_edge*0.6,0.0);
+  d=source-x;
+  filled=max(source,1e-3);
+  at=d/filled;
+
+  // This cell's own course through the current event.
+  grow=u_to>=u_from;
+  delay=grow?h*u_timing.x:(1.0-h)*u_timing.z;
+  dur=(grow?u_timing.y:u_timing.w)/(0.85+0.3*h);
+  k=clamp((u_since-delay)/dur,0.0,1.0);
+  float eased=grow?1.0-pow(1.0-k,3.0):k*k*(3.0-2.0*k);
+  float base=mix(u_from,u_to,eased);
+  // Each cell's front is a little early or late, but only while there is a
+  // front at all: at zero there is nothing left to be early about.
+  float reach=base<0.0005?0.0:max(base+(h-0.5)*0.05*smoothstep(0.0,0.12,base),0.0);
+  extent=reach*filled;
+  running=grow?1.0-k:0.0;
+
+  across=abs(p.y-0.5)*2.0;
+  body=pow(max(1.0-across*across*0.45,0.0),0.75);
+  behind=smoothstep(-0.3,0.05,d);
+  lit=smoothstep(0.0,0.08,max(u_to,base));
+
+  if(u_mode<0.5)fireMode();
+  else if(u_mode<1.5)synapseMode();
+  else if(u_mode<2.5)frostMode();
+  else planktonMode();
+
+  // Each cell is a soft square.
+  float half_=u_p.z*0.5;
+  float cell=smoothstep(half_+0.06,half_-0.08,max(abs(cf.x)*0.92,abs(cf.y)));
+  vec2 now=min(vec2(E,W)*cell*u_p.w,vec2(2.0));
+
+  // Afterglow: light builds up over the last few frames and drains away.
+  // The small subtraction lets it reach zero: on an 8-bit buffer a fading
+  // value would otherwise round to the same faint step forever.
+  vec2 last=max(texture(u_back,v_uv).rg*2.0*u_keep-vec2(3.0/255.0),vec2(0.0));
+  vec2 result=max(now*0.8,last+now*(1.0-u_keep)*1.4);
+  o=vec4(min(result*0.5,vec2(1.0)),0.0,1.0);
+}`,St=`#version 300 es
+precision highp float;
+in vec2 v_uv;
+uniform sampler2D u_tex;
+uniform vec2 u_step;
+uniform float u_threshold;
+out vec4 o;
+vec4 at(vec2 uv){
+  vec4 c=texture(u_tex,uv);
+  // First pass only: keep what is hot enough to glow.
+  if(u_threshold>0.0){c*=smoothstep(u_threshold,u_threshold+0.25,c.r*2.0);}
+  return c;
+}
+void main(){
+  vec4 c=at(v_uv)*0.2270270270;
+  c+=(at(v_uv+u_step*1.3846153846)+at(v_uv-u_step*1.3846153846))*0.3162162162;
+  c+=(at(v_uv+u_step*3.2307692308)+at(v_uv-u_step*3.2307692308))*0.0702702703;
+  o=c;
+}`,Rt=`#version 300 es
+precision highp float;
+in vec2 v_uv;
+uniform sampler2D u_scene;
+uniform sampler2D u_bloom;
+uniform sampler2D u_ramp;
+uniform float u_dark;
+uniform float u_bloomAmount;
+uniform float u_time;
+out vec4 o;
+vec3 ramp(float heat){return texture(u_ramp,vec2(clamp(heat,0.0,1.0)*0.984+0.008,0.5)).rgb;}
+float grain(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
+void main(){
+  vec2 scene=texture(u_scene,v_uv).rg*2.0;
+  vec2 bloom=texture(u_bloom,v_uv).rg*2.0;
+  float e=scene.x;
+  float glow=bloom.x*u_bloomAmount;
+  // A dim cell is a cool cell: faint light leans to the hue, never to grey.
+  float heat=(e>0.002?scene.y/e:0.0)*mix(0.55,1.0,clamp(e*1.4,0.0,1.0));
+  float glowHeat=bloom.x>0.002?bloom.y/bloom.x:0.0;
+  vec3 color=ramp(heat);
+  vec3 glowColor=ramp(glowHeat*0.9);
+
+  // Dark rail: light adds up, then rolls off toward white.
+  vec3 lit=1.0-exp(-(color*e+glowColor*glow*1.2+color*e*glow*0.35)*1.15);
+  float litAlpha=max(max(lit.r,lit.g),lit.b);
+
+  // Light rail: light is ink. Density becomes alpha, temperature becomes depth.
+  float density=1.0-exp(-(e*1.5+glow*0.45));
+  vec3 ink=mix(ramp(0.2+glowHeat*0.7),ramp(0.22+heat*0.78),clamp(e/(e+glow*0.5+0.001),0.0,1.0));
+
+  vec4 result=mix(vec4(ink*density,density),vec4(lit,litAlpha),u_dark);
+  // Dither, but only where there is light: an empty rail stays exactly empty.
+  result.rgb+=(grain(gl_FragCoord.xy+fract(u_time)*61.0)-0.5)/255.0*step(0.004,result.a)*result.a;
+  o=clamp(result,0.0,1.0);
+}`,He=Object.freeze(["fire","synapse","frost","plankton"]);var Lt={rows:6,fill:.72,flicker:1,sparks:1,persistence:.9,bloom:1,threshold:.55,gain:1},be=class t{static create(e,n){try{let r=e.getContext("webgl2",{alpha:!0,premultipliedAlpha:!0,antialias:!1,depth:!1,stencil:!1,powerPreference:"low-power"});return r?new t(e,r,n):null}catch{return null}}constructor(e,n,{maxPixelRatio:r=2,onContextLost:a,onContextRestored:o}={}){this.canvas=e,this.gl=n,this.maxPixelRatio=r,this.dark=!0,this.mode="fire",this.look={...Lt},this.rampStops=["#2a1250","#7a3bd6","#a857f7","#dcc4ff","#fff7fd"],this.lost=!1,this.cssWidth=0,this.cssHeight=0,this.time=0,this.seed=0,this.onLost=i=>{i.preventDefault(),this.lost=!0,a?.()},this.onRestored=()=>{this.lost=!1,this.build(),o?.()},e.addEventListener("webglcontextlost",this.onLost),e.addEventListener("webglcontextrestored",this.onRestored),this.build()}build(){let{gl:e}=this;this.targets=null,this.fresh=!0,this.field=this.program(Mt,["u_res","u_back","u_time","u_keep","u_head","u_edge","u_rows","u_seed","u_from","u_to","u_since","u_level","u_charge","u_burst","u_vel","u_mode","u_p","u_timing"]),this.blur=this.program(St,["u_tex","u_step","u_threshold"]),this.composite=this.program(Rt,["u_scene","u_bloom","u_ramp","u_dark","u_bloomAmount","u_time"]),this.vao=e.createVertexArray(),this.quad=e.createBuffer(),e.bindVertexArray(this.vao),e.bindBuffer(e.ARRAY_BUFFER,this.quad),e.bufferData(e.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),e.STATIC_DRAW),e.enableVertexAttribArray(0),e.vertexAttribPointer(0,2,e.FLOAT,!1,0,0),this.rampTexture=e.createTexture(),this.uploadRamp(),e.disable(e.BLEND),e.disable(e.DEPTH_TEST),this.cssWidth>0&&this.resize(this.cssWidth,this.cssHeight,!0)}program(e,n){let{gl:r}=this,a=(m,v)=>{let y=r.createShader(m);if(r.shaderSource(y,v),r.compileShader(y),!r.getShaderParameter(y,r.COMPILE_STATUS)){let l=r.getShaderInfoLog(y);throw r.deleteShader(y),new Error(`Shader compile failed: ${l}`)}return y},o=a(r.VERTEX_SHADER,At),i=a(r.FRAGMENT_SHADER,e),c=r.createProgram();if(r.attachShader(c,o),r.attachShader(c,i),r.bindAttribLocation(c,0,"a_position"),r.linkProgram(c),r.deleteShader(o),r.deleteShader(i),!r.getProgramParameter(c,r.LINK_STATUS)){let m=r.getProgramInfoLog(c);throw r.deleteProgram(c),new Error(`Shader link failed: ${m}`)}let b={};for(let m of n)b[m]=r.getUniformLocation(c,m);return{program:c,uniforms:b}}uploadRamp(){let{gl:e}=this,n=64;e.bindTexture(e.TEXTURE_2D,this.rampTexture),e.texImage2D(e.TEXTURE_2D,0,e.RGBA,n,1,0,e.RGBA,e.UNSIGNED_BYTE,ft(this.rampStops,n)),e.texParameteri(e.TEXTURE_2D,e.TEXTURE_MIN_FILTER,e.LINEAR),e.texParameteri(e.TEXTURE_2D,e.TEXTURE_MAG_FILTER,e.LINEAR),e.texParameteri(e.TEXTURE_2D,e.TEXTURE_WRAP_S,e.CLAMP_TO_EDGE),e.texParameteri(e.TEXTURE_2D,e.TEXTURE_WRAP_T,e.CLAMP_TO_EDGE)}configure({mode:e,ramp:n,dark:r,seed:a,look:o}={}){He.includes(e)&&(this.mode=e),typeof r=="boolean"&&(this.dark=r),Number.isFinite(a)&&(this.seed=a),o!==null&&typeof o=="object"&&(this.look={...Lt,...o}),Array.isArray(n)&&n.length>=2&&n.join()!==this.rampStops.join()&&(this.rampStops=[...n],this.lost||this.uploadRamp())}reset(){this.fresh=!0}clear(){if(this.lost||this.targets===null)return;let{gl:e}=this;e.clearColor(0,0,0,0);for(let n of[this.targets.scene,this.targets.last])e.bindFramebuffer(e.FRAMEBUFFER,n.framebuffer),e.clear(e.COLOR_BUFFER_BIT);e.bindFramebuffer(e.FRAMEBUFFER,null),e.clear(e.COLOR_BUFFER_BIT),this.fresh=!0}target(e,n){let{gl:r}=this,a=r.createTexture(),o=r.createFramebuffer();return r.bindTexture(r.TEXTURE_2D,a),r.texImage2D(r.TEXTURE_2D,0,r.RGBA,e,n,0,r.RGBA,r.UNSIGNED_BYTE,null),r.texParameteri(r.TEXTURE_2D,r.TEXTURE_MIN_FILTER,r.LINEAR),r.texParameteri(r.TEXTURE_2D,r.TEXTURE_MAG_FILTER,r.LINEAR),r.texParameteri(r.TEXTURE_2D,r.TEXTURE_WRAP_S,r.CLAMP_TO_EDGE),r.texParameteri(r.TEXTURE_2D,r.TEXTURE_WRAP_T,r.CLAMP_TO_EDGE),r.bindFramebuffer(r.FRAMEBUFFER,o),r.framebufferTexture2D(r.FRAMEBUFFER,r.COLOR_ATTACHMENT0,r.TEXTURE_2D,a,0),{texture:a,framebuffer:o,width:e,height:n}}releaseTargets(){if(this.targets!==null){for(let{texture:e,framebuffer:n}of Object.values(this.targets))this.gl.deleteTexture(e),this.gl.deleteFramebuffer(n);this.targets=null}}resize(e,n,r=!1){if(this.cssWidth=e,this.cssHeight=n,this.lost)return;let a=Math.min(globalThis.devicePixelRatio||1,this.maxPixelRatio),o=Math.max(2,Math.round(e*a)),i=Math.max(2,Math.round(n*a));if(!r&&this.targets!==null&&this.canvas.width===o&&this.canvas.height===i)return;this.canvas.width=o,this.canvas.height=i,this.releaseTargets();let c=Math.max(1,Math.round(o/2)),b=Math.max(1,Math.round(i/2));this.fresh=!0,this.targets={scene:this.target(o,i),last:this.target(o,i),blurA:this.target(c,b),blurB:this.target(c,b)}}blurPass(e,n,r,a,o){let{gl:i}=this;i.bindFramebuffer(i.FRAMEBUFFER,n.framebuffer),i.viewport(0,0,n.width,n.height),i.bindTexture(i.TEXTURE_2D,e.texture),i.uniform2f(this.blur.uniforms.u_step,r/n.width,a/n.height),i.uniform1f(this.blur.uniforms.u_threshold,o),i.drawArrays(i.TRIANGLES,0,6)}render({time:e=0,dt:n=1/60,head:r=0,edge:a=0,level:o=0,charge:i=0,velocity:c=0,from:b=0,to:m=0,since:v=99,burst:y=99}={}){if(this.lost||this.targets===null)return;let{gl:l,canvas:T,targets:x,look:S}=this,w=this.cssHeight>0?this.cssHeight:1;this.time=e;let k=this.fresh||!(n>0)?0:Math.pow(S.persistence,n*60);this.fresh=!1,l.bindVertexArray(this.vao),l.activeTexture(l.TEXTURE0);let E=this.field,g=E.uniforms;l.bindFramebuffer(l.FRAMEBUFFER,x.scene.framebuffer),l.viewport(0,0,T.width,T.height),l.useProgram(E.program),l.bindTexture(l.TEXTURE_2D,x.last.texture),l.uniform1i(g.u_back,0),l.uniform2f(g.u_res,T.width,T.height),l.uniform1f(g.u_time,e),l.uniform1f(g.u_keep,k),l.uniform1f(g.u_head,r/w),l.uniform1f(g.u_edge,a/w),l.uniform1f(g.u_rows,S.rows),l.uniform1f(g.u_seed,this.seed),l.uniform1f(g.u_from,b),l.uniform1f(g.u_to,m),l.uniform1f(g.u_since,v),l.uniform1f(g.u_level,o),l.uniform1f(g.u_charge,i),l.uniform1f(g.u_burst,y),l.uniform1f(g.u_vel,c),l.uniform1f(g.u_mode,He.indexOf(this.mode)),l.uniform4f(g.u_p,S.flicker,S.sparks,S.fill,S.gain),l.uniform4f(g.u_timing,z.igniteDelay,z.igniteDuration,z.quenchDelay,z.quenchDuration),l.drawArrays(l.TRIANGLES,0,6);let L=Math.max(1,x.blurA.height*.05);l.useProgram(this.blur.program),l.uniform1i(this.blur.uniforms.u_tex,0),this.blurPass(x.scene,x.blurA,L,0,S.threshold),this.blurPass(x.blurA,x.blurB,0,L,0),this.blurPass(x.blurB,x.blurA,L*2.2,0,0),this.blurPass(x.blurA,x.blurB,0,L*2.2,0),l.bindFramebuffer(l.FRAMEBUFFER,null),l.viewport(0,0,T.width,T.height),l.useProgram(this.composite.program),l.bindTexture(l.TEXTURE_2D,x.scene.texture),l.activeTexture(l.TEXTURE1),l.bindTexture(l.TEXTURE_2D,x.blurB.texture),l.activeTexture(l.TEXTURE2),l.bindTexture(l.TEXTURE_2D,this.rampTexture),l.activeTexture(l.TEXTURE0),l.uniform1i(this.composite.uniforms.u_scene,0),l.uniform1i(this.composite.uniforms.u_bloom,1),l.uniform1i(this.composite.uniforms.u_ramp,2),l.uniform1f(this.composite.uniforms.u_dark,this.dark?1:0),l.uniform1f(this.composite.uniforms.u_bloomAmount,S.bloom),l.uniform1f(this.composite.uniforms.u_time,e),l.drawArrays(l.TRIANGLES,0,6);let _=x.scene;x.scene=x.last,x.last=_}dispose(){if(this.canvas.removeEventListener("webglcontextlost",this.onLost),this.canvas.removeEventListener("webglcontextrestored",this.onRestored),this.lost)return;let{gl:e}=this;this.releaseTargets();for(let n of[this.field,this.blur,this.composite])e.deleteProgram(n.program);e.deleteTexture(this.rampTexture),e.deleteBuffer(this.quad),e.deleteVertexArray(this.vao),e.getExtension("WEBGL_lose_context")?.loseContext(),this.lost=!0}};var ur=String.raw`
+.es-root{--es-h:28px;--es-inset:calc(var(--es-h)/2);--es-radius:9px;--es-font:11px;--es-gap:6px;--es-track:#111015;--es-on-track:#fff;--es-glow:#9a4cf5;--es-intensity:0;--es-ambient:1;display:flex;flex-direction:column;gap:var(--es-gap);min-width:0;font-size:var(--es-font);line-height:1.35;-webkit-tap-highlight-color:transparent}
+.es-root[data-size=sm]{--es-h:22px;--es-radius:7px;--es-font:10px;--es-gap:5px}
+.es-root[data-size=lg]{--es-h:40px;--es-radius:13px;--es-font:13px;--es-gap:9px}
+.es-root[data-thumb=orb]{--es-radius:calc(var(--es-h)/2)}
+.es-root[data-thumb=block]{--es-radius:4px}
+.es-root[data-thumb=bar]{--es-radius:5px;--es-inset:5px}
+.es-root[data-labels=bottom]{flex-direction:column-reverse}
+.es-root[data-labels=none] .es-labels,.es-root[data-empty] .es-labels,.es-root[data-empty] .es-track,.es-root:not([data-empty]) .es-empty{display:none}
+.es-empty{opacity:.6}
+
+.es-labels{position:relative;height:1.35em}
+.es-label{position:absolute;top:0;inset-inline-start:calc(var(--es-inset) + (100% - 2*var(--es-inset))*var(--es-at));translate:-50%;max-width:calc(100%/var(--es-count));margin:0;padding:0;border:0;background:none;color:inherit;font:inherit;font-weight:500;opacity:.5;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:opacity .15s ease}
+.es-root[data-rtl] .es-label{translate:50%}
+.es-label:first-child{inset-inline-start:0;translate:none}
+.es-label:last-child{inset-inline-start:auto;inset-inline-end:0;translate:none}
+.es-label:hover{opacity:.8}
+.es-label.is-current{opacity:1;font-weight:650;text-shadow:0 0 calc(var(--es-intensity)*var(--es-ambient)*14px) color-mix(in srgb,var(--es-glow) calc(var(--es-intensity)*80%),transparent)}
+.es-label.is-arriving{animation:es-arrive .42s cubic-bezier(.33,1,.68,1)}
+@keyframes es-arrive{from{transform:translateY(55%);opacity:.2}to{transform:none;opacity:1}}
+.es-root[data-disabled] .es-label{cursor:default}
+
+.es-track{position:relative;box-sizing:border-box;height:var(--es-h);border-radius:var(--es-radius);background:var(--es-track);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--es-on-track) 10%,transparent),0 0 calc(var(--es-intensity)*var(--es-ambient)*22px) color-mix(in srgb,var(--es-glow) calc(var(--es-intensity)*var(--es-ambient)*28%),transparent);cursor:pointer;outline:none;touch-action:pan-y;user-select:none;-webkit-user-select:none;isolation:isolate}
+.es-track:focus-visible{outline:2px solid color-mix(in srgb,var(--es-glow) 75%,currentColor);outline-offset:3px}
+.es-root[data-dragging] .es-track{cursor:grabbing}
+.es-root[data-disabled]{opacity:.5}
+.es-root[data-disabled] .es-track{cursor:default}
+.es-clip{position:absolute;inset:0;border-radius:inherit;overflow:hidden}
+.es-fill{position:absolute;inset-block:0;inset-inline-start:0;width:0;background:var(--es-gradient);opacity:calc(.3 + .7*var(--es-intensity))}
+.es-energy{position:absolute;inset:0;display:block;width:100%;height:100%;pointer-events:none}
+.es-root[data-rtl] .es-energy{transform:scaleX(-1)}
+.es-root[data-render=webgl] .es-fill,.es-root[data-render=css] .es-energy{display:none}
+.es-tick{position:absolute;top:50%;inset-inline-start:calc(var(--es-inset) + (100% - 2*var(--es-inset))*var(--es-at));width:4px;height:4px;margin:-2px;border-radius:50%;background:var(--es-on-track);opacity:.3;transition:opacity .2s ease}
+.es-tick.is-passed{opacity:0}
+
+.es-thumb{position:absolute;top:50%;left:0;box-sizing:border-box;width:calc(var(--es-h) - 2px);height:calc(var(--es-h) - 2px);border:.5px solid #00000018;border-radius:calc(var(--es-radius) - 1px);background:linear-gradient(170deg,#fff 0%,#f2f2f4 45%,#dddde2 100%);box-shadow:0 .5px 1px #0000002e,0 2px 6px #00000040,0 5px 12px #0000001f,0 0 calc(var(--es-intensity)*var(--es-ambient)*16px) calc(var(--es-intensity)*var(--es-ambient)*1px) color-mix(in srgb,var(--es-glow) calc(var(--es-intensity)*var(--es-ambient)*65%),transparent),inset 0 .5px #ffffffd9;pointer-events:none;will-change:transform}
+.es-root[data-thumb=orb] .es-thumb{border-radius:50%}
+.es-root[data-thumb=block] .es-thumb{border-radius:3px}
+.es-root[data-thumb=bar] .es-thumb{width:7px;height:calc(var(--es-h) + 8px);border-radius:3.5px}
+.es-thumb::after{content:"";position:absolute;inset:-4px;border:1.5px solid var(--es-glow);border-radius:inherit;opacity:0}
+.es-root[data-pending] .es-thumb::after{animation:es-pending 1s ease-in-out infinite}
+.es-root[data-rejected] .es-track{animation:es-reject .36s ease}
+@keyframes es-pending{0%,100%{opacity:0}50%{opacity:.85}}
+@keyframes es-reject{0%,100%{translate:0}20%{translate:-5px}45%{translate:4px}70%{translate:-2px}}
+
+@media (prefers-reduced-motion:reduce){
+  .es-label.is-arriving{animation:none}
+  .es-label,.es-tick{transition:none}
+  .es-root[data-pending] .es-thumb::after{animation:none;opacity:.7}
+  .es-root[data-rejected] .es-track{animation:none}
+}
+@media (forced-colors:active){
+  .es-track{border:1px solid CanvasText;box-shadow:none}
+  .es-energy{display:none!important}
+  .es-fill{display:block!important;background:Highlight;opacity:1}
+  .es-tick{background:CanvasText}
+  .es-thumb{background:ButtonText;border-color:ButtonFace;box-shadow:none}
+}
+`,Dt=new WeakSet;function Ft(t=globalThis.document){if(t==null||Dt.has(t))return;Dt.add(t);let e=t.createElement("style");e.dataset.effortSlider="",e.textContent=ur,(t.head??t).appendChild(e)}var hr=700,fr=1900,mr=.3,pr=3.7,We={levels:X.quad,value:void 0,preset:"flame",accent:void 0,colors:void 0,params:void 0,thumb:void 0,theme:"auto",size:"md",labels:"top",render:"auto",motion:"auto",magnet:.5,disabled:!1,haptics:!1,label:"Reasoning effort",labelledBy:void 0,emptyText:"No effort levels are available.",onChange:void 0,onInput:void 0,onReject:void 0},$e=(t,e,n)=>Math.max(e,Math.min(n,t)),gr=0;function ve(t,e={}){if(t==null)throw new TypeError("createEffortSlider needs a host element");let n=t.ownerDocument,r=n.defaultView;Ft(n);let a={...We},o=(gr+=1)*7.31,i=(s,d)=>{let p=n.createElement(s);return p.className=d,p},c=i("div","es-root"),b=i("div","es-labels"),m=i("div","es-track"),v=i("div","es-clip"),y=i("div","es-fill"),l=i("canvas","es-energy"),T=i("div","es-ticks"),x=i("div","es-thumb"),S=i("div","es-empty");b.setAttribute("aria-hidden","true"),l.setAttribute("aria-hidden","true"),m.setAttribute("role","slider"),m.setAttribute("aria-orientation","horizontal"),m.tabIndex=0,v.append(y,l,T),m.append(v,x),c.append(b,m,S),t.appendChild(c);let w=[],k=pe(a.preset),E=!0,g=!1,L=!1,_=null,O=!1,F=0,U=0,V=!0,j=!1,B=0,f=0,D=0,R=0,C=0,ie=0,Qe=0,Te=99,K=null,Ee=0,Ae=-1,Me=-1,Se=-1,Re=[],Je=[],le=!0,ce=-1,Y={levels:"",look:"",static:""},I=new ge,G=Et(),Q=()=>{B===0&&V&&!j&&(B=r.requestAnimationFrame(tt))},ee=()=>k.thumb==="bar"?5:U/2,Gt=()=>k.thumb==="bar"?3.5:Math.max(0,U/2-1),Ht=s=>ee()+(F-2*ee())*s,A=vt({setTimer:(s,d)=>r.setTimeout(s,d),clearTimer:s=>r.clearTimeout(s),onCommit:(s,d)=>a.onChange?.(s,d),onReject:s=>a.onReject?.(s.id,s),onPreview:s=>{a.haptics&&A.state.dragging&&r.navigator.vibrate?.(6),a.onInput?.(s.id,s)},onState:(s,d)=>{Ze(s);let p=r.performance.now();if(d==="settle"||d==="reject"||d==="value"){let P=s.preview===w.length-1;ie=p+(P?fr:hr)}s.level!==void 0&&(g?G.settle(s.level.intensity):G.target(s.level.intensity)),d==="settle"&&!g&&(s.level?.intensity??0)>0&&(Te=0),d==="reject"&&(c.toggleAttribute("data-rejected",!0),r.clearTimeout(Ee),Ee=r.setTimeout(()=>c.removeAttribute("data-rejected"),400)),Q()}});function Ze(s){let d=s.level;if(c.toggleAttribute("data-dragging",s.dragging),c.toggleAttribute("data-pending",s.pending),m.setAttribute("aria-valuenow",String(s.preview)),d!==void 0&&m.setAttribute("aria-valuetext",d.hint?`${d.name}, ${d.hint}`:d.name),s.pending?m.setAttribute("aria-busy","true"):m.removeAttribute("aria-busy"),Re.forEach((p,P)=>p.classList.toggle("is-current",P===s.preview)),s.preview!==ce){let p=Re[s.preview];p!==void 0&&ce!==-1&&(p.classList.remove("is-arriving"),p.offsetWidth,p.classList.add("is-arriving")),ce=s.preview}}function Wt(){b.replaceChildren(),T.replaceChildren(),Re=w.map(s=>{let d=i("button","es-label");return d.type="button",d.tabIndex=-1,d.textContent=s.name,s.hint&&(d.title=s.hint),d.style.setProperty("--es-at",String(s.ratio)),d.addEventListener("click",()=>A.jumpTo(s.index)),b.appendChild(d),d}),ce=-1,Je=w.map(s=>{let d=i("i","es-tick");return d.style.setProperty("--es-at",String(s.ratio)),T.appendChild(d),d}),c.style.setProperty("--es-count",String(Math.max(1,w.length))),c.toggleAttribute("data-empty",w.length<2),m.setAttribute("aria-valuemin","0"),m.setAttribute("aria-valuemax",String(Math.max(0,w.length-1))),Se=-1}function $t(){return a.theme==="dark"?!0:a.theme==="light"?!1:Fe?.matches??!0}function qt(){return a.motion==="still"?!0:a.motion==="full"?!1:Ce?.matches??!1}function Le(){if(_===null)return;_.dispose(),_=null;let s=i("canvas","es-energy");s.setAttribute("aria-hidden","true"),l.replaceWith(s),l=s}function Vt(){O=!0,Le(),c.dataset.render="css"}function Kt(){a.render!=="css"&&!O&&w.length>1?_===null&&(_=be.create(l,{onContextLost:()=>{c.dataset.render="css"},onContextRestored:()=>{c.dataset.render="webgl",Q()}}),_===null?O=!0:F>0&&_.resize(F,U)):Le(),c.dataset.render=_===null?"css":"webgl";let d=E?k.dark:k.light,{params:p}=k;G.setReach(p.reach),_?.configure({mode:k.mode,ramp:d.ramp,dark:E,seed:o%97,look:{rows:p.rows,fill:p.fill,flicker:p.flicker,sparks:p.sparks,persistence:p.persistence,bloom:p.bloom,threshold:p.threshold,gain:p.gain}})}function et(){let s=E?k.dark:k.light;c.dataset.theme=E?"dark":"light",c.dataset.thumb=k.thumb,c.dataset.preset=k.id,c.style.setProperty("--es-track",s.track),c.style.setProperty("--es-on-track",E?"#ffffff":"#000000"),c.style.setProperty("--es-ambient",String(k.params.glow)),c.style.setProperty("--es-gradient",mt(s.ramp,L?"to left":"to right")),Me=-1,Ae=-1,Kt()}function De(){let s=ze(a.levels),d=JSON.stringify(s.map(W=>[W.id,W.name,W.hint,W.intensity]));d!==Y.levels?(Y.levels=d,w=s,Wt(),A.setLevels(w,le?a.value:void 0),I.snap(A.state.target)):le&&a.value!==void 0&&A.setValue(a.value),le=!1,A.setMagnet(a.magnet),A.setDisabled(a.disabled);let p=[a.size,a.labels,a.disabled,a.label,a.labelledBy,a.emptyText].join("|");p!==Y.static&&(Y.static=p,c.dataset.size=["sm","md","lg"].includes(a.size)?a.size:"md",c.dataset.labels=["top","bottom","none"].includes(a.labels)?a.labels:"top",c.toggleAttribute("data-disabled",!!a.disabled),m.tabIndex=a.disabled?-1:0,a.disabled?m.setAttribute("aria-disabled","true"):m.removeAttribute("aria-disabled"),a.labelledBy?(m.setAttribute("aria-labelledby",a.labelledBy),m.removeAttribute("aria-label")):(m.setAttribute("aria-label",a.label),m.removeAttribute("aria-labelledby")),S.textContent=a.emptyText);let P=$t(),M=qt(),H=JSON.stringify([a.preset,a.accent,a.colors,a.params,a.thumb,a.render,P,w.length>1]);(H!==Y.look||M!==g)&&(Y.look=H,E=P,g=M,k=pe(a.preset,a),et()),Pe(),Ze(A.state),Q()}function Yt(s,d){let p=Ht(s),P=L?F-p:p;x.style.transform=`translate3d(${P.toFixed(2)}px,-50%,0) translateX(-50%) scale(${(1+C*.1).toFixed(3)},${(1-C*.06).toFixed(3)})`,_===null&&(y.style.width=`${Math.max(0,p).toFixed(1)}px`),Math.abs(d-Ae)>.004&&(Ae=d,c.style.setProperty("--es-intensity",d.toFixed(3))),Math.abs(d-Me)>.02&&(Me=d,c.style.setProperty("--es-glow",Ie((E?k.dark:k.light).ramp,E?.3+.45*d:.35+.5*d)));let M=0;for(let H of w)H.ratio<=s+.001&&(M+=1);return M!==Se&&(Se=M,Je.forEach((H,W)=>H.classList.toggle("is-passed",W<M))),p}function tt(s){if(B=0,j||w.length<2||F===0)return;let d=A.state,p=d.dragging||d.pending||s<ie;if(!p&&I.settled&&I.value===d.target&&R===0&&!g&&s-D<30){B=r.requestAnimationFrame(tt);return}let M=f===0?1/60:Math.min(.05,(s-f)/1e3);if(f=s,D=s,g)I.snap(d.target),R=mr,C=0;else{I.stiffness=d.dragging?900:380,I.damping=d.dragging?60:27,I.target=d.target,I.step(M);let $=p?1:0;R+=($-R)*(1-Math.exp(-M*($>R?12:1.5))),$===0&&R<.002&&(R=0),C+=($e(Math.abs(I.velocity)*.35,0,1)-C)*Math.min(1,M*18),C<.001&&(C=0)}let H=$e(I.value,-.012,1.012),W=Be(w,H),ct=Yt(H,W);if(_!==null){if(!g){let $=M*k.params.speed;G.advance($),Qe+=$,Te+=$}try{_.render({time:g?pr+o:Qe,dt:g?0:M,head:ct,edge:Gt(),level:W,charge:R,velocity:g?0:I.velocity*Math.max(0,F-2*ee())/Math.max(1,U),from:G.from,to:G.to,since:G.since,burst:g?99:Te})}catch($){r.console?.warn?.("[effort-slider] WebGL rendering failed; using the CSS fill.",$),Vt(),y.style.width=`${Math.max(0,ct).toFixed(1)}px`}}let rr=p||!I.settled||I.value!==d.target||R>0||C>0,ar=_!==null&&G.burning;!g&&(rr||ar)?Q():(f=0,_!==null&&!g&&G.to===0&&_.clear())}let rt=s=>{let d=m.getBoundingClientRect(),p=Math.max(1,d.width-2*ee()),P=(s.clientX-d.left-ee())/p;return $e(L?1-P:P,0,1)},Qt=s=>{if(!(s.button!==0||a.disabled||w.length<2)){K=s.pointerId,Pe();try{m.setPointerCapture(K)}catch{}m.focus({preventScroll:!0}),A.dragStart(rt(s)),s.preventDefault()}},Jt=s=>{s.pointerId===K&&A.dragMove(rt(s))},Zt=s=>{s.pointerId===K&&(K=null,A.dragEnd())},at=s=>{s.pointerId===K&&(K=null,A.dragCancel())},er=s=>{if(a.disabled||s.altKey||s.ctrlKey||s.metaKey)return;let d=L?"ArrowLeft":"ArrowRight",p=L?"ArrowRight":"ArrowLeft",{preview:P}=A.state,M;if(s.key===d||s.key==="ArrowUp"||s.key==="PageUp")M=P+1;else if(s.key===p||s.key==="ArrowDown"||s.key==="PageDown")M=P-1;else if(s.key==="Home")M=0;else if(s.key==="End")M=w.length-1;else return;s.preventDefault(),A.previewIndex(M)},tr=()=>A.flush();m.addEventListener("pointerdown",Qt),m.addEventListener("pointermove",Jt),m.addEventListener("pointerup",Zt),m.addEventListener("pointercancel",at),m.addEventListener("lostpointercapture",at),m.addEventListener("keydown",er),m.addEventListener("blur",tr);let Fe=r.matchMedia?.("(prefers-color-scheme: dark)"),Ce=r.matchMedia?.("(prefers-reduced-motion: reduce)"),de=()=>De();Fe?.addEventListener?.("change",de),Ce?.addEventListener?.("change",de);let nt=typeof r.ResizeObserver=="function"?new r.ResizeObserver(()=>ot()):null;function Pe(){let s=r.getComputedStyle(c).direction==="rtl";s!==L&&(L=s,c.toggleAttribute("data-rtl",L),et())}function ot(){let s=m.getBoundingClientRect();Pe(),F=s.width,U=s.height,F>0&&_?.resize(F,U),f=0,Q()}nt?.observe(m);let st=typeof r.IntersectionObserver=="function"?new r.IntersectionObserver(s=>{V=s[s.length-1].isIntersecting,f=0,Q()}):null;st?.observe(c);let it=s=>{for(let[d,p]of Object.entries(s))p===void 0||!(d in We)||(a[d]=p===null?We[d]:p)};it(e),De(),ot();let lt=(s={})=>{j||(le=typeof s.value=="string",it(s),De())};return{element:c,get value(){return w[A.state.committed]?.id},update:lt,setValue(s){lt({value:s})},destroy:()=>{j||(A.flush(),j=!0,r.cancelAnimationFrame(B),r.clearTimeout(Ee),A.destroy(),nt?.disconnect(),st?.disconnect(),Fe?.removeEventListener?.("change",de),Ce?.removeEventListener?.("change",de),Le(),c.remove())}}}function h(t,e={},...n){let r=document.createElement(t);for(let[a,o]of Object.entries(e))o===!1||o===null||o===void 0||(a.startsWith("on")?r.addEventListener(a.slice(2),o):a==="class"?r.className=o:r.setAttribute(a,o===!0?"":o));return r.append(...n.flat().filter(a=>a!=null&&a!==!1)),r}var br=t=>new Promise(e=>setTimeout(e,t)),Ut=window.matchMedia("(prefers-color-scheme: dark)"),vr=[["binary","On / off"],["triad","Three steps"],["quad","Four steps"],["penta","Five steps"],["budget","Token budget"]],u={theme:"auto",preset:"flame",scale:"quad",size:"lg",motion:"auto",render:"auto",accent:null,slowSave:!1,refuseTop:!1,value:"high"},ke=()=>u.theme==="auto"?Ut.matches?"dark":"light":u.theme,It=h("strong",{class:"readout-name"}),zt=h("span",{class:"readout-hint"}),se=h("span",{class:"readout-status",role:"status"}),jt=h("div",{class:"hero-host"}),xe=h("ol",{class:"log","aria-label":"Calls the host received"});function we(t){It.textContent=t.name,zt.textContent=t.hint??""}function Ct(t){for(xe.prepend(h("li",{},t));xe.children.length>4;)xe.lastChild.remove()}var qe=ve(jt,{levels:X[u.scale],value:u.value,preset:u.preset,size:u.size,theme:ke(),label:"Reasoning effort",onInput:(t,e)=>we(e),onChange:async(t,e)=>{let n=X[u.scale];return u.slowSave&&(se.textContent="Saving\u2026",await br(900)),u.refuseTop&&t===n[n.length-1].id?(Ct(`onChange("${t}") returned false`),se.textContent=`The host refused ${e.name}. Rolled back.`,we(n.find(r=>r.id===u.value)),!1):(u.value=t,Ct(`onChange("${t}") returned true`),se.textContent="Saved",_e(),!0)}});function oe(t,e,n,r){let a=e.map(([i,c])=>h("button",{type:"button","data-value":i,onclick:()=>{r(i),o()}},c)),o=()=>a.forEach(i=>i.setAttribute("aria-pressed",String(i.dataset.value===n())));return o(),h("div",{class:"control"},h("span",{class:"control-label"},t),h("div",{class:"segmented",role:"group","aria-label":t},a))}function Pt(t,e,n,r){let a=h("input",{type:"checkbox",onchange:o=>r(o.currentTarget.checked)});return a.checked=n(),h("label",{class:"toggle"},a,h("span",{},h("b",{},t),h("small",{},e)))}var xr=h("input",{type:"color",value:"#e11d48","aria-label":"Brand colour",oninput:t=>{u.accent=t.currentTarget.value,Z()}}),Ve=h("button",{type:"button",class:"link",onclick:()=>{u.accent=null,Z()}},"Use the preset\u2019s own colours");function Z(){qe.update({preset:u.preset,accent:u.accent,size:u.size,motion:u.motion,render:u.render,theme:ke()}),Ve.hidden=u.accent===null,_e()}function yr(t){let e=X[t];u.scale=t;let n=X[u.previousScale??t],r=Math.max(0,n.findIndex(i=>i.id===u.value)),a=n.length>1?r/(n.length-1):0,o=e[Math.round(a*(e.length-1))];u.previousScale=t,u.value=o.id,qe.update({levels:e,value:o.id}),se.textContent="",we(o),_e()}u.previousScale=u.scale;var wr=h("div",{class:"controls"},oe("Scale",vr,()=>u.scale,yr),oe("Size",[["sm","Small"],["md","Medium"],["lg","Large"]],()=>u.size,t=>{u.size=t,Z()}),oe("Motion",[["auto","Follow system"],["full","Always"],["still","Still"]],()=>u.motion,t=>{u.motion=t,Z()}),oe("Drawing",[["auto","WebGL"],["css","CSS only"]],()=>u.render,t=>{u.render=t,Z()}),h("div",{class:"control"},h("span",{class:"control-label"},"One brand colour"),h("div",{class:"accent"},xr,Ve)),h("div",{class:"control toggles"},Pt("Slow save","onChange takes 0.9 s to answer",()=>u.slowSave,t=>{u.slowSave=t}),Pt("Refuse the top level","onChange returns false",()=>u.refuseTop,t=>{u.refuseTop=t}))),Bt=[],Nt=[],Ot=["max","high","max","high","max"],kr=h("div",{class:"gallery"},Object.values(J).map((t,e)=>{let n=h("div",{class:"preset-host"}),r=h("button",{type:"button",class:"use",onclick:()=>{u.preset=t.id,u.accent=null,Z(),Xt(),document.querySelector(".stage").scrollIntoView({behavior:"smooth",block:"center"})}}),a=h("article",{class:"preset","data-preset":t.id},h("div",{class:"preset-head"},h("h3",{},t.name),r),h("p",{class:"phenomenon"},t.phenomenon),h("p",{},t.description),n);return Nt.push({card:a,use:r,id:t.id}),Bt.push(ve(n,{levels:X.quad,value:Ot[e%Ot.length],preset:t.id,theme:ke(),label:`${t.name} preset`})),a}));function Xt(){for(let{card:t,use:e,id:n}of Nt){let r=n===u.preset&&u.accent===null;t.toggleAttribute("data-current",r),e.textContent=r?"On the stage":"Put on the stage",e.disabled=r}}var Ke=h("code",{}),ye=h("button",{type:"button",class:"copy",onclick:async()=>{try{await navigator.clipboard.writeText(Ke.textContent),ye.textContent="Copied"}catch{ye.textContent="Select the text to copy"}setTimeout(()=>{ye.textContent="Copy"},1600)}},"Copy");function _e(){let t=[`  levels: LEVEL_SETS.${u.scale},`,`  value: '${u.value}',`,`  preset: '${u.preset}',`,u.accent===null?null:`  accent: '${u.accent}',`,u.size==="md"?null:`  size: '${u.size}',`,u.motion==="auto"?null:`  motion: '${u.motion}',`,u.render==="auto"?null:`  render: '${u.render}',`,"  onChange: async (id, level) => {","    // Called once per gesture. Return false (or throw) to roll back.","    return saveEffort(id)","  },"].filter(e=>e!==null);Ke.textContent=["import { createEffortSlider, LEVEL_SETS } from 'effort-slider-core'","","createEffortSlider(document.querySelector('#effort'), {",...t,"})"].join(`
+`)}function Ye(){let t=ke();document.documentElement.dataset.theme=t,qe.update({theme:t});for(let e of Bt)e.update({theme:t})}Ut.addEventListener("change",Ye);document.getElementById("app").append(h("header",{class:"top"},h("span",{class:"mark"},"effort-slider-core",h("small",{},"2.1")),oe("Theme",[["auto","System"],["light","Light"],["dark","Dark"]],()=>u.theme,t=>{u.theme=t,Ye()})),h("main",{},h("section",{class:"intro"},h("h1",{},"A slider for how hard the model thinks."),h("p",{},"Drag it, click a level, or use the arrow keys. Each choice lights a fire that catches cell by cell: a smoulder at the low end, the whole rail ablaze at the top. Lower it and the fire goes out, leaving embers.")),h("section",{class:"stage","aria-label":"Live slider"},h("div",{class:"readout"},h("div",{class:"readout-level"},It,zt),se),jt,xe),h("section",{class:"panel","aria-label":"Options for the live slider"},wr),h("section",{class:"presets"},h("h2",{},"Presets"),h("p",{class:"section-lede"},"Every preset keeps the same rules: light is an event, each cell is an individual, the front is the most alive part, the source has a pulse, colour is temperature. What changes is the phenomenon they are read through. Each one wakes as it scrolls into view; try moving the plankton."),kr),h("section",{class:"usage"},h("h2",{},"The code for the slider on the stage"),h("div",{class:"snippet"},ye,h("pre",{},Ke)))),h("footer",{},h("p",{},"No server, no account, no telemetry. MIT licensed.")));we(X[u.scale].find(t=>t.id===u.value));Ve.hidden=!0;_e();Xt();Ye();})();
+</script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+{
+  "name": "effort-slider-core",
+  "version": "2.1.0",
+  "description": "A reasoning-effort slider for agent tools: framework-free control, combustion WebGL fields, five presets",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "keywords": [
+    "effort-slider",
+    "reasoning-effort",
+    "thinking-budget",
+    "agent",
+    "llm",
+    "slider",
+    "webgl",
+    "react",
+    "custom-element"
+  ],
+  "module": "./src/index.js",
+  "types": "./types/index.d.ts",
+  "exports": {
+    ".": { "types": "./types/index.d.ts", "default": "./src/index.js" },
+    "./react": { "types": "./types/react.d.ts", "default": "./src/react.js" },
+    "./element": { "types": "./types/element.d.ts", "default": "./src/element.js" },
+    "./core": { "types": "./types/index.d.ts", "default": "./src/core/index.js" },
+    "./renderer": { "types": "./types/renderer.d.ts", "default": "./src/render/renderer.js" },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "types",
+    "dist",
+    "docs",
+    "README.md",
+    "README.ja.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test",
+    "check": "npm test && npm run build",
+    "prepack": "npm run build"
+  },
+  "peerDependencies": {
+    "react": ">=18.2.0"
+  },
+  "peerDependenciesMeta": {
+    "react": { "optional": true }
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}
