@@ -18,6 +18,14 @@
   ],
   "module": "./src/index.js",
   "types": "./types/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WSL043/effort-slider-core.git"
+  },
+  "homepage": "https://wsl043.github.io/effort-slider-core/",
+  "bugs": {
+    "url": "https://github.com/WSL043/effort-slider-core/issues"
+  },
   "exports": {
     ".": { "types": "./types/index.d.ts", "default": "./src/index.js" },
     "./react": { "types": "./types/react.d.ts", "default": "./src/react.js" },
